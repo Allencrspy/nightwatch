@@ -9,6 +9,21 @@ import { AppError } from '../utils/errors.js';
 import { buildAnalystInput } from '../services/scanner/run-scan.js';
 import { logger } from '../utils/logger.js';
 
+/**
+ * Delivery instructions for the paste bridge only.
+ *
+ * Kept out of the shared framework prompt on purpose: over the API there is
+ * no file to download and no clipboard to mangle, so this would be noise
+ * there. Here it earns its place — a file avoids the typographic quotes chat
+ * clients substitute into JSON, which is the single most common way a reply
+ * arrives unparseable.
+ */
+const DELIVERY_INSTRUCTIONS = `## HOW TO DELIVER YOUR ANSWER
+
+Save the JSON object as a downloadable file named \`nightwatch-reply.json\`, containing the JSON and nothing else — no commentary before or after, no code fences. I will upload that file directly.
+
+If you cannot produce a file, print the raw JSON instead, and use only straight quotes (") — not typographic quotes (" ") — or it will not parse.`;
+
 const AnalystResponseSchema = z.object({
   briefId: z.string().min(1),
   /** The analyst's reply. JSON object, or text with a JSON object inside it. */
@@ -89,7 +104,14 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
         prompt,
         factSheet,
         // Ready to paste in one go.
-        pasteText: `${prompt}\n\n---\n\nFACT SHEET (use only these numbers):\n\n${JSON.stringify(factSheet, null, 2)}`,
+        pasteText: [
+          prompt,
+          '---',
+          DELIVERY_INSTRUCTIONS,
+          '---',
+          'FACT SHEET (use only these numbers):',
+          JSON.stringify(factSheet, null, 2),
+        ].join('\n\n'),
       },
     });
   });
