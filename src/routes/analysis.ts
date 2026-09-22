@@ -57,6 +57,8 @@ export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
         stageOrder: scan.stageOrder,
         funnel: scan.funnel,
         universeSize: FNO_STOCK_UNIVERSE.length,
+        niftyQuote: scan.niftyQuote,
+        bankNiftyQuote: scan.bankNiftyQuote,
         niftyLastPrice: scan.niftyQuote.lastPrice,
         niftyChangePercent: scan.niftyQuote.changePercent,
         bankNiftyLastPrice: scan.bankNiftyQuote.lastPrice,

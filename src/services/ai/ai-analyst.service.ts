@@ -3,7 +3,10 @@ import { env } from '../../config/env.js';
 import { logger } from '../../utils/logger.js';
 import type { StockCandidateData } from '../scanner/candidate-scanner.js';
 import type { ScoreBreakdown } from '../scoring/scoring-engine.js';
+import type { QuoteWithChange } from '../dhan/dhan-market-data.service.js';
 import type { IntradayAnalysisResponse, IntradaySetup } from '../../schemas/analysis-response.schema.js';
+import { buildFactSheet, type FactSheet } from './fact-sheet.js';
+import { FRAMEWORK_SYSTEM_PROMPT, PROMPT_VERSION } from './framework-prompt.js';
 
 export interface ScoredCandidate {
   candidate: StockCandidateData;
@@ -17,6 +20,8 @@ export interface AnalystInput {
   stageOrder: readonly string[];
   funnel: Array<{ stage: string; part: string; rejected: number }>;
   universeSize: number;
+  niftyQuote: QuoteWithChange;
+  bankNiftyQuote: QuoteWithChange;
   niftyLastPrice: number;
   niftyChangePercent: number;
   bankNiftyLastPrice: number;
@@ -126,6 +131,8 @@ export class AiAnalystService {
       stopLoss,
       targets: [t1, t2],
       riskRewardRatio: 2,
+      why: '',
+      gapPlan: [],
       invalidation: long
         ? `A 5-minute close back below ${stopLoss}, or failure to hold ${entryTrigger} after breaking it.`
         : `A 5-minute close back above ${stopLoss}, or failure to hold ${entryTrigger} after breaking it.`,
@@ -186,6 +193,8 @@ export class AiAnalystService {
     return {
       generatedAt: new Date().toISOString(),
       analyst: 'RULE_ENGINE',
+      promptVersion: null,
+      selfCritique: null,
       dataNotes,
       noHighQualitySetup,
       framework: { stageOrder: [...stageOrder], funnel, universeSize },
@@ -233,46 +242,139 @@ export class AiAnalystService {
   }
 
   /**
-   * The LLM re-reasons over the same verified numbers. It may reorder, reject
-   * or re-narrate — it may not introduce prices, and the response schema
-   * rejects anything whose geometry does not hold.
+   * Runs the framework as an analyst over a fully-computed fact sheet.
+   *
+   * The division of labour is the point. The model judges — what kind of
+   * setup this is, whether the sector conflict matters, what is too extended,
+   * whether anything is worth trading. The server computes — risk-reward,
+   * position size, every derived number. Anything the model states in those
+   * fields is discarded and recalculated, because a model doing arithmetic is
+   * exactly where the original handed-over code went wrong.
    */
   private async callOpenAiAnalyst(
     input: AnalystInput,
     base: IntradayAnalysisResponse
   ): Promise<IntradayAnalysisResponse> {
-    const systemPrompt = `You are an Indian equity intraday analyst working to a night-before NSE selection framework.
+    const sheet: FactSheet = buildFactSheet({
+      scored: input.scoredCandidates,
+      screenedOut: input.rejected.map((r) => ({ symbol: r.symbol, stage: r.stage, reason: r.reason })),
+      nifty: input.niftyQuote,
+      bankNifty: input.bankNiftyQuote,
+      sectors: input.sectorPerformances,
+      capital: input.capital,
+      riskPercent: input.riskPercent,
+      maxTrades: input.maxTrades,
+    });
 
-RULES
-1. Use ONLY the numbers in the payload. Never introduce a price, level or statistic that is not there.
-2. A field marked null or listed in unknownFactors is UNKNOWN. Do not treat unknown as neutral, and do not estimate it.
-3. Keep every setup's entryTrigger, stopLoss and targets exactly as given. You may drop a setup; you may not move its levels.
-4. Separate fact from interpretation in the narrative fields.
-5. Return JSON matching the schema of the provided baseline object, with the same keys.`;
+    logger.info(
+      { candidates: sheet.candidates.length, screenedOut: sheet.screenedOut.length, promptVersion: PROMPT_VERSION },
+      'Running framework analyst'
+    );
 
     const res = await this.openai!.chat.completions.create({
       model: env.OPENAI_MODEL,
       response_format: { type: 'json_object' },
       temperature: 0.2,
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: JSON.stringify({ baseline: base, skipped: input.skipped }, null, 2) },
+        { role: 'system', content: FRAMEWORK_SYSTEM_PROMPT },
+        { role: 'user', content: JSON.stringify(sheet) },
       ],
     });
 
     const content = res.choices[0]?.message?.content;
-    if (!content) throw new Error('empty response');
+    if (!content) throw new Error('empty response from the analyst');
+    const out = JSON.parse(content);
 
-    const parsed = JSON.parse(content) as IntradayAnalysisResponse;
-    // Provenance and data caveats are ours to state, not the model's to edit.
+    const known = new Map(input.scoredCandidates.map((sc) => [sc.candidate.quote.symbol, sc.candidate]));
+    const maxRiskAmount = sheet.risk.maxRiskPerTrade;
+    const setups: IntradaySetup[] = [];
+
+    for (const raw of Array.isArray(out.setups) ? out.setups : []) {
+      const candidate = known.get(raw.symbol);
+      if (!candidate) {
+        // A symbol that was not in the fact sheet cannot have been analysed.
+        logger.warn({ symbol: raw.symbol }, 'Analyst returned a symbol absent from the fact sheet; dropped');
+        continue;
+      }
+
+      const bias = raw.bias === 'SHORT' ? 'SHORT' : 'LONG';
+      const entryTrigger = Number(raw.entryTrigger);
+      const stopLoss = Number(raw.stopLoss);
+      const targets = (Array.isArray(raw.targets) ? raw.targets : []).map(Number).slice(0, 2);
+
+      const risk = bias === 'LONG' ? entryTrigger - stopLoss : stopLoss - entryTrigger;
+      if (!Number.isFinite(risk) || risk <= 0 || targets.length !== 2 || targets.some((t: number) => !Number.isFinite(t))) {
+        logger.warn({ symbol: raw.symbol, entryTrigger, stopLoss, targets }, 'Analyst setup has unusable geometry; dropped');
+        continue;
+      }
+
+      // Server-side arithmetic, always. The model's own numbers are ignored.
+      const byRisk = Math.floor(maxRiskAmount / risk);
+      const byCapital = Math.floor(input.capital / entryTrigger);
+      const shares = Math.max(0, Math.min(byRisk, byCapital));
+      if (shares === 0) {
+        logger.warn({ symbol: raw.symbol }, 'Setup sizes to zero shares at this capital; dropped');
+        continue;
+      }
+
+      setups.push({
+        symbol: raw.symbol,
+        bias,
+        tier: raw.tier === 'HIGH' ? 'HIGH' : 'WATCHLIST',
+        // The deterministic trace travels with the setup as a second opinion.
+        stages: candidate.filters.stages,
+        volumeCharacter: raw.volumeCharacter ?? candidate.filters.volumeCharacter,
+        setupType: raw.setupType,
+        score: Number(raw.scoreBreakdown?.totalScore ?? raw.score),
+        scoreBreakdown: raw.scoreBreakdown,
+        close: candidate.quote.lastPrice,
+        entryTrigger,
+        stopLoss,
+        targets: targets as [number, number],
+        riskRewardRatio: Number((Math.abs(targets[0] - entryTrigger) / risk).toFixed(2)),
+        why: String(raw.why ?? ''),
+        gapPlan: Array.isArray(raw.gapPlan)
+          ? raw.gapPlan.filter((g: any) => g?.condition && g?.action)
+          : [],
+        invalidation: String(raw.invalidation ?? ''),
+        bullishScenario: String(raw.bullishScenario ?? ''),
+        bearishScenario: String(raw.bearishScenario ?? ''),
+        positionSizing: {
+          recommendedShares: shares,
+          positionValue: Number((shares * entryTrigger).toFixed(2)),
+          riskAmount: Number((shares * risk).toFixed(2)),
+        },
+      });
+    }
+
+    const noHighQualitySetup = Boolean(out.noHighQualitySetup) || !setups.some((s) => s.tier === 'HIGH');
+
     return {
-      ...parsed,
-      generatedAt: new Date().toISOString(),
+      ...base,
       analyst: 'OPENAI',
-      dataNotes: base.dataNotes,
-      noHighQualitySetup: base.noHighQualitySetup,
-      framework: base.framework,
-      skipped: input.skipped,
+      promptVersion: PROMPT_VERSION,
+      selfCritique: out.selfCritique ?? null,
+      noHighQualitySetup,
+      market: {
+        ...base.market,
+        bias: ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(out.marketBias) ? out.marketBias : base.market.bias,
+        strongestSectors: out.strongestSectors ?? base.market.strongestSectors,
+        weakestSectors: out.weakestSectors ?? base.market.weakestSectors,
+        noTradeConditions: out.noTradeConditions ?? base.market.noTradeConditions,
+      },
+      setups,
+      top3BestSetups: (out.top3BestSetups ?? [])
+        .filter((sym: string) => setups.some((s) => s.symbol === sym && s.tier === 'HIGH'))
+        .slice(0, 3),
+      topLongCandidates: setups.filter((s) => s.bias === 'LONG').map((s) => s.symbol),
+      topShortCandidates: setups.filter((s) => s.bias === 'SHORT').map((s) => s.symbol),
+      stocksToAvoid: Array.isArray(out.stocksToAvoid) && out.stocksToAvoid.length
+        ? out.stocksToAvoid.map((a: any) => ({
+            symbol: String(a.symbol), stage: 'analyst', part: 'Part 19 — stocks to avoid',
+            reason: String(a.reason ?? 'No reason given.'),
+          }))
+        : base.stocksToAvoid,
+      checklist900to915: out.checklist900to915 ?? base.checklist900to915,
     };
   }
 }

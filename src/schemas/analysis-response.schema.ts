@@ -46,6 +46,10 @@ export const IntradaySetupSchema = z
     stages: z.array(StageResultSchema).min(1),
     /** Part 2: what the volume actually accompanied. */
     volumeCharacter: z.string().nullable(),
+    /** Part 15: what to do at each opening gap. Per setup, not generic. */
+    gapPlan: z.array(z.object({ condition: z.string(), action: z.string().min(1) })).default([]),
+    /** Fact then interpretation, in the analyst's words. */
+    why: z.string().default(''),
     setupType: z.enum([
       'BREAKOUT', 'BREAKDOWN', 'CONTINUATION', 'PULLBACK', 'SUPPORT_REVERSAL', 'RESISTANCE_REJECTION',
     ]),
@@ -115,6 +119,10 @@ export const IntradayAnalysisResponseSchema = z
     generatedAt: z.string(),
     /** How the setups were produced, so the dashboard never has to guess. */
     analyst: z.enum(['OPENAI', 'RULE_ENGINE']),
+    /** Which prompt produced this. A changed prompt is a changed system. */
+    promptVersion: z.string().nullable().default(null),
+    /** The analyst's own argument against tonight's list. */
+    selfCritique: z.string().nullable().default(null),
     dataNotes: z.array(z.string()),
     /** Part 10 rule: never force a trade. True when nothing cleared every stage. */
     noHighQualitySetup: z.boolean(),
