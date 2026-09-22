@@ -75,9 +75,20 @@ export function withChangeFromHistory(quote: MarketQuote, history: Candle[]): Ma
 
 const SEGMENT_NSE_EQ = 'NSE_EQ';
 
+/**
+ * Session dates in IST, because that is the timezone NSE trades in.
+ *
+ * Using the UTC date is wrong for five and a half hours of every day: between
+ * 18:30 and 24:00 UTC it is already tomorrow in India, so a request for
+ * "today" returned the previous session. The monitor then evaluated the very
+ * session the plan was derived from and reported it as already stopped out.
+ */
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
 function toIsoDate(d: Date): string {
-  return d.toISOString().split('T')[0];
+  return new Date(d.getTime() + IST_OFFSET_MS).toISOString().split('T')[0];
 }
+
 
 /**
  * Dhan REST client, scoped to one authenticated session.
@@ -161,15 +172,21 @@ export class DhanMarketDataService {
    */
   public async getIntradayCandles(symbol: string, interval: '1' | '5' | '15' | '25' | '60' = '5'): Promise<Candle[]> {
     const securityId = await InstrumentMaster.securityId(symbol);
-    const today = toIsoDate(new Date());
+
+    // Dhan treats the intraday range as exclusive of toDate: asking for
+    // fromDate == toDate returns zero bars, silently. The monitor then sees
+    // no data and reports every condition as unknown, which looks exactly
+    // like a session that has not opened.
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     const payload = {
       securityId,
       exchangeSegment: SEGMENT_NSE_EQ,
       instrument: 'EQUITY',
       interval,
-      fromDate: today,
-      toDate: today,
+      fromDate: toIsoDate(new Date()),
+      toDate: toIsoDate(tomorrow),
     };
 
     const data = await this.post('/charts/intraday', payload, symbol);

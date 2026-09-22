@@ -28,6 +28,8 @@ export interface AnalystInput {
   bankNiftyChangePercent: number;
   sectorPerformances: Array<{ sector: string; changePercent: number }>;
   skipped: Array<{ symbol: string; reason: string }>;
+  /** Previous closes for the whole resolved universe, for the monitor. */
+  previousCloses: Record<string, number>;
   capital: number;
   riskPercent: number;
   maxTrades: number;
@@ -128,6 +130,33 @@ export class AiAnalystService {
       targets: [t1, t2],
       riskRewardRatio: 2,
       why: '',
+      // The rule engine states only what it can defend from structure: the
+      // trigger, participation, and VWAP. It does not guess at market or
+      // sector thresholds the way an analyst reasoning about the session can.
+      conditions: [
+        {
+          text: `5-minute close ${long ? 'above' : 'below'} ${entryTrigger}`,
+          required: true,
+          check: long
+            ? { type: 'price_close_above' as const, value: entryTrigger, timeframe: '5m' as const }
+            : { type: 'price_close_below' as const, value: entryTrigger, timeframe: '5m' as const },
+        },
+        {
+          text: 'Volume expansion on the breakout candle',
+          required: true,
+          check: { type: 'volume_expansion' as const, multiple: 1.5 },
+        },
+        {
+          text: `Price ${long ? 'above' : 'below'} session VWAP`,
+          required: true,
+          check: long ? { type: 'above_vwap' as const } : { type: 'below_vwap' as const },
+        },
+        {
+          text: 'Level is retested and holds',
+          required: false,
+          check: { type: 'manual' as const, note: 'Judgement call after the open.' },
+        },
+      ],
       gapPlan: [],
       invalidation: long
         ? `A 5-minute close back below ${stopLoss}, or failure to hold ${entryTrigger} after breaking it.`
@@ -373,6 +402,17 @@ export class AiAnalystService {
         targets: targets as [number, number],
         riskRewardRatio: Number((Math.abs(targets[0] - entryTrigger) / risk).toFixed(2)),
         why: String(raw.why ?? ''),
+        // An analyst that omits conditions still gets the trigger, so the
+        // monitor always has something to evaluate rather than nothing.
+        conditions: Array.isArray(raw.conditions) && raw.conditions.length
+          ? raw.conditions
+          : [{
+              text: `5-minute close ${bias === 'LONG' ? 'above' : 'below'} ${entryTrigger}`,
+              required: true,
+              check: bias === 'LONG'
+                ? { type: 'price_close_above', value: entryTrigger, timeframe: '5m' }
+                : { type: 'price_close_below', value: entryTrigger, timeframe: '5m' },
+            }],
         gapPlan: Array.isArray(raw.gapPlan)
           ? raw.gapPlan.filter((g: any) => g?.condition && g?.action)
           : [],

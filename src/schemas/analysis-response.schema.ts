@@ -9,6 +9,13 @@ import { z } from 'zod';
 
 const price = z.number().finite().positive();
 
+/**
+ * The framework's own no-trade condition 8: stand down below 1.5:1. A plan
+ * presented at 0.13:1 is one you must never take, so showing it as a setup
+ * is misleading — it belongs in the rejected list with its reason.
+ */
+export const MIN_RISK_REWARD = 1.5;
+
 export const ScoreBreakdownSchema = z.object({
   priceStructure: z.number().min(0).max(20),
   volume: z.number().min(0).max(20),
@@ -29,6 +36,34 @@ const FACTOR_KEYS = [
   'trend', 'sector', 'liquidity', 'news',
 ] as const;
 
+/**
+ * A machine-checkable entry condition.
+ *
+ * `text` is what a person reads. `check` is what the monitor evaluates
+ * against live intraday data — without it, a condition is prose and the Live
+ * view can only display it, never test it. `manual` is honest for conditions
+ * that genuinely need a human (a retest holding, discretion about the open).
+ */
+export const ConditionCheckSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('price_close_above'), value: z.number().positive(), timeframe: z.enum(['5m', '15m']).default('5m') }),
+  z.object({ type: z.literal('price_close_below'), value: z.number().positive(), timeframe: z.enum(['5m', '15m']).default('5m') }),
+  z.object({ type: z.literal('above_vwap') }),
+  z.object({ type: z.literal('below_vwap') }),
+  z.object({ type: z.literal('volume_expansion'), multiple: z.number().positive().default(1.5) }),
+  z.object({ type: z.literal('index_above'), index: z.string(), value: z.number().positive() }),
+  z.object({ type: z.literal('index_below'), index: z.string(), value: z.number().positive() }),
+  z.object({ type: z.literal('sector_positive'), sector: z.string() }),
+  z.object({ type: z.literal('sector_negative'), sector: z.string() }),
+  z.object({ type: z.literal('manual'), note: z.string().default('') }),
+]);
+
+export const EntryConditionSchema = z.object({
+  text: z.string().min(1),
+  /** False for a preference. Only required conditions gate an entry. */
+  required: z.boolean().default(true),
+  check: ConditionCheckSchema,
+});
+
 export const StageResultSchema = z.object({
   stage: z.string(),
   part: z.string(),
@@ -46,6 +81,8 @@ export const IntradaySetupSchema = z
     stages: z.array(StageResultSchema).min(1),
     /** Part 2: what the volume actually accompanied. */
     volumeCharacter: z.string().nullable(),
+    /** Parts 15-17: what must be true before entering, machine-checkable. */
+    conditions: z.array(EntryConditionSchema).default([]),
     /** Part 15: what to do at each opening gap. Per setup, not generic. */
     gapPlan: z.array(z.object({ condition: z.string(), action: z.string().min(1) })).default([]),
     /** Fact then interpretation, in the analyst's words. */
@@ -94,6 +131,13 @@ export const IntradaySetupSchema = z
       const computed = Math.abs(t1 - s.entryTrigger) / risk;
       if (Math.abs(computed - s.riskRewardRatio) > 0.05) {
         fail('riskRewardRatio', `states ${s.riskRewardRatio.toFixed(2)} but entry/stop/T1 give ${computed.toFixed(2)}`);
+      }
+      if (computed < MIN_RISK_REWARD) {
+        fail(
+          'riskRewardRatio',
+          `risk-reward to T1 is ${computed.toFixed(2)}:1 — risking ${risk.toFixed(2)} to make ` +
+            `${Math.abs(t1 - s.entryTrigger).toFixed(2)}. The framework stands down below ${MIN_RISK_REWARD}:1.`
+        );
       }
     }
 

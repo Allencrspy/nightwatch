@@ -24,6 +24,9 @@ export interface StoredBrief {
   /** The rule-engine baseline the analyst's answer is merged onto. */
   base: IntradayAnalysisResponse;
   candidateCount: number;
+  /** The accepted plan, once one has been produced from this brief. */
+  plan?: IntradayAnalysisResponse;
+  planAcceptedAt?: string;
 }
 
 const TTL_MS = 18 * 60 * 60 * 1000; // an overnight window, and no longer
@@ -51,6 +54,25 @@ export class BriefStore {
     this.briefs.set(brief.id, brief);
     this.persist();
     return brief;
+  }
+
+  /** Attaches the accepted plan, so the monitor has setups to watch. */
+  public static attachPlan(id: string, plan: IntradayAnalysisResponse): void {
+    this.load();
+    const brief = this.briefs.get(id);
+    if (!brief) return;
+    brief.plan = plan;
+    brief.planAcceptedAt = new Date().toISOString();
+    this.persist();
+  }
+
+  /** The most recent brief that has an accepted plan. */
+  public static latestWithPlan(): StoredBrief | null {
+    this.load();
+    this.prune();
+    return [...this.briefs.values()]
+      .filter((b) => b.plan)
+      .sort((a, b) => (b.planAcceptedAt ?? '').localeCompare(a.planAcceptedAt ?? ''))[0] ?? null;
   }
 
   public static get(id: string): StoredBrief | null {

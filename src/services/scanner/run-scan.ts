@@ -51,6 +51,7 @@ export async function buildAnalystInput(
     bankNiftyChangePercent: scan.bankNiftyQuote.changePercent,
     sectorPerformances: scan.sectorPerformances,
     skipped: scan.skipped,
+    previousCloses: scan.previousCloses,
     capital: opts.capital,
     riskPercent: opts.riskPercent,
     maxTrades: opts.maxTrades,

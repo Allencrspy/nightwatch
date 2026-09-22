@@ -40,6 +40,13 @@ export interface ScanResult {
   sectorPerformances: Array<{ sector: string; changePercent: number }>;
   /** Symbols the scan could not evaluate, with the reason. Surfaced, not hidden. */
   skipped: Array<{ symbol: string; reason: string }>;
+  /**
+   * Previous close for every symbol the scan resolved, not just candidates.
+   * The monitor needs these to compute live sector moves, and Dhan's quote
+   * does not carry them — re-deriving them later would mean another eighty
+   * historical calls.
+   */
+  previousCloses: Record<string, number>;
 }
 
 /**
@@ -198,9 +205,12 @@ export class CandidateScannerService {
       'Scan complete'
     );
 
+    const previousCloses: Record<string, number> = {};
+    for (const [sym, p] of prepared) previousCloses[sym] = p.quote.previousClose;
+
     return {
       candidates, rejected, stageOrder: STAGE_ORDER, funnel,
-      niftyQuote, bankNiftyQuote, sectorPerformances, skipped,
+      niftyQuote, bankNiftyQuote, sectorPerformances, skipped, previousCloses,
     };
   }
 

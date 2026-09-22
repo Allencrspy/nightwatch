@@ -5,6 +5,7 @@ import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
 import { analysisRoutes } from './routes/analysis.js';
 import { analystRoutes } from './routes/analyst.js';
+import { monitorRoutes } from './routes/monitor.js';
 import { env } from './config/env.js';
 import { AppError } from './utils/errors.js';
 import { logger } from './utils/logger.js';
@@ -60,6 +61,7 @@ export function buildApp() {
   app.register(authRoutes);
   app.register(analysisRoutes);
   app.register(analystRoutes);
+  app.register(monitorRoutes);
 
   return app;
 }

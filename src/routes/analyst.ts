@@ -146,6 +146,7 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
       );
     }
 
+    BriefStore.attachPlan(briefId, parsed.data);
     logger.info({ briefId, setups: parsed.data.setups.length }, 'Pasted plan accepted');
     return reply.send({ success: true, data: parsed.data });
   });
