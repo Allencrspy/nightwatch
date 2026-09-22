@@ -38,9 +38,22 @@ export interface CandidateFacts {
   // Structure.
   swingHigh20: number;
   swingLow20: number;
+  swingHigh50: number;
+  swingLow50: number;
+  prevSessionHigh: number;
+  prevSessionLow: number;
   support: number;
   resistance: number;
   breakoutType: string;
+  /**
+   * Levels one and two ATR beyond the close, in both directions. Measured
+   * projections, not predictions — they exist so a second target can be set
+   * from volatility when structure offers only one level above the trigger.
+   */
+  oneAtrAbove: number;
+  twoAtrAbove: number;
+  oneAtrBelow: number;
+  twoAtrBelow: number;
 
   // Trend.
   ema20: number;
@@ -119,9 +132,18 @@ export function candidateFacts(c: StockCandidateData, score: ScoreBreakdown): Ca
 
     swingHigh20: r(t.swingHigh20),
     swingLow20: r(t.swingLow20),
+    swingHigh50: r(t.swingHigh50),
+    swingLow50: r(t.swingLow50),
+    prevSessionHigh: r(t.prevSessionHigh),
+    prevSessionLow: r(t.prevSessionLow),
     support: r(t.supportLevel),
     resistance: r(t.resistanceLevel),
     breakoutType: t.breakoutType,
+
+    oneAtrAbove: r(q.lastPrice + t.atr14),
+    twoAtrAbove: r(q.lastPrice + 2 * t.atr14),
+    oneAtrBelow: r(q.lastPrice - t.atr14),
+    twoAtrBelow: r(q.lastPrice - 2 * t.atr14),
 
     ema20: r(t.ema20),
     ema50: r(t.ema50),

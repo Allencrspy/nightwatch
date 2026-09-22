@@ -24,6 +24,15 @@ export interface TechnicalMetrics {
   yearWindowIncomplete: boolean;
   /** Cumulative return over the last four sessions — a multi-day run is extension. */
   return4Session: number;
+  /**
+   * A wider structural window and the prior session's extremes. Without these
+   * the only level above a 20-day breakout was the 52-week high, so an
+   * analyst asked for two distinct targets had to repeat one.
+   */
+  swingHigh50: number;
+  swingLow50: number;
+  prevSessionHigh: number;
+  prevSessionLow: number;
   /** Close relative to the 20-EMA, as a percentage. */
   distanceFromEma20Percent: number;
 }
@@ -240,6 +249,11 @@ export class TechnicalIndicatorService {
 
     const atr14 = this.calculateATR(candles, 14);
     const derived = this.calculateYearRange(candles);
+
+    const recent50 = candles.slice(-51, -1);
+    const swingHigh50 = recent50.length ? Math.max(...recent50.map((c) => c.high)) : swingHigh20;
+    const swingLow50 = recent50.length ? Math.min(...recent50.map((c) => c.low)) : swingLow20;
+    const prior = candles[candles.length - 2] ?? lastCandle;
     const high52w = known.week52High ?? derived.high52w;
     const low52w = known.week52Low ?? derived.low52w;
     // Only "incomplete" when the figures had to be derived from short history.
@@ -266,6 +280,10 @@ export class TechnicalIndicatorService {
       low52w,
       yearWindowIncomplete,
       return4Session: this.calculateRecentRun(candles, 4),
+      swingHigh50: Number(swingHigh50.toFixed(2)),
+      swingLow50: Number(swingLow50.toFixed(2)),
+      prevSessionHigh: Number(prior.high.toFixed(2)),
+      prevSessionLow: Number(prior.low.toFixed(2)),
       distanceFromEma20Percent:
         ema20 > 0 ? Number((((lastCandle.close - ema20) / ema20) * 100).toFixed(2)) : 0,
     };

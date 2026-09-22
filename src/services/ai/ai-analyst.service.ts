@@ -3,7 +3,7 @@ import { logger } from '../../utils/logger.js';
 import type { StockCandidateData } from '../scanner/candidate-scanner.js';
 import type { ScoreBreakdown } from '../scoring/scoring-engine.js';
 import type { QuoteWithChange } from '../dhan/dhan-market-data.service.js';
-import type { IntradayAnalysisResponse, IntradaySetup } from '../../schemas/analysis-response.schema.js';
+import { IntradaySetupSchema, type IntradayAnalysisResponse, type IntradaySetup } from '../../schemas/analysis-response.schema.js';
 import { buildFactSheet, type FactSheet } from './fact-sheet.js';
 import { FRAMEWORK_SYSTEM_PROMPT, PROMPT_VERSION } from './framework-prompt.js';
 import { runAnalyst, activeProvider } from './providers.js';
@@ -357,7 +357,7 @@ export class AiAnalystService {
         continue;
       }
 
-      setups.push({
+      const built = {
         symbol: raw.symbol,
         bias,
         tier: raw.tier === 'HIGH' ? 'HIGH' : 'WATCHLIST',
@@ -384,7 +384,19 @@ export class AiAnalystService {
           positionValue: Number((shares * entryTrigger).toFixed(2)),
           riskAmount: Number((shares * risk).toFixed(2)),
         },
-      });
+      };
+
+      // Validate each setup on its own. One malformed setup should cost that
+      // setup, not the whole evening's analysis — withholding a sound plan
+      // because a different one had duplicate targets helps nobody.
+      const checked = IntradaySetupSchema.safeParse(built);
+      if (!checked.success) {
+        const why = checked.error.issues.map((i) => i.message).join('; ');
+        logger.warn({ symbol: raw.symbol, why }, 'Analyst setup failed its invariants; dropped');
+        dropped.push({ symbol: String(raw.symbol), reason: why });
+        continue;
+      }
+      setups.push(checked.data);
     }
 
     const noHighQualitySetup = Boolean(out.noHighQualitySetup) || !setups.some((s) => s.tier === 'HIGH');

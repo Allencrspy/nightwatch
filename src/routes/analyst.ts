@@ -15,9 +15,31 @@ const AnalystResponseSchema = z.object({
   response: z.string().min(2),
 });
 
-/** Chat clients wrap JSON in prose or fences; find the object either way. */
+/**
+ * Chat clients mangle JSON on the way to a clipboard in predictable ways:
+ * they wrap it in prose or code fences, and — the one that actually bites —
+ * they typographically "correct" straight quotes into curly ones, which is
+ * no longer valid JSON. Normalising here beats asking a person to repair
+ * punctuation by hand.
+ *
+ * Curly quotes are converted everywhere, including inside string values. A
+ * value that legitimately contained a typographic quote comes back with a
+ * straight one — a cosmetic change to prose, and the alternative is refusing
+ * the whole response.
+ */
+function normaliseFromChat(raw: string): string {
+  return raw
+    .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"')   // curly double quotes
+    .replace(/[\u2018\u2019\u201A\u201B\u2032]/g, "'")   // curly single quotes
+    .replace(/\u00A0/g, ' ')                              // non-breaking space
+    .replace(/[\u200B-\u200D\uFEFF]/g, '');              // zero-width junk
+}
+
 function extractJson(raw: string): any {
-  const text = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const text = normaliseFromChat(raw)
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '');
   try {
     return JSON.parse(text);
   } catch {

@@ -2067,8 +2067,15 @@ function viewAnalyst(){
         <div class="step-n">3</div>
         <div class="step-body">
           <h3>Paste the reply back</h3>
-          <p class="muted">The whole reply is fine — surrounding prose and code fences are stripped. It is then checked against the same rules an API answer would face: every symbol must be one from the brief, stops on the correct side of entry, targets ordered, and all sizing recomputed here.</p>
-          <textarea class="input" id="brief-reply" placeholder='Paste the analyst&apos;s reply here…' spellcheck="false" ${d?"":"disabled"}></textarea>
+          <p class="muted">Paste the reply, or upload the file your assistant produced. Surrounding prose, code fences and the curly quotes chat apps substitute for straight ones are all handled. It is then checked against the same rules an API answer would face: every symbol must be one from the brief, stops on the correct side of entry, targets ordered outward, and all sizing recomputed here.</p>
+          <div class="toolbar" style="margin:12px 0 10px">
+            <label class="btn" for="brief-file" style="cursor:pointer">
+              <span class="glyph">↑</span> Upload a file
+              <input type="file" id="brief-file" accept=".json,.txt,.md,application/json,text/plain" style="display:none" ${d?"":"disabled"}>
+            </label>
+            <span class="dim" id="brief-file-msg" style="font-size:12px"></span>
+          </div>
+          <textarea class="input" id="brief-reply" placeholder='…or paste the reply here' spellcheck="false" ${d?"":"disabled"}></textarea>
           <button class="btn primary" id="brief-submit" style="margin-top:10px" ${d && !b.submitting ? "" : "disabled"}>
             ${b.submitting ? `<span class="spin"></span> Validating…` : `<span class="glyph">→</span> Process reply`}
           </button>
@@ -2259,6 +2266,25 @@ document.addEventListener("input", e => {
 
 document.addEventListener("change", e => {
   if (e.target.id === "sim"){ state.simulate = e.target.checked; render(); }
+
+  if (e.target.id === "brief-file"){
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const msg = document.getElementById("brief-file-msg");
+    log("info", "reading analyst file", { name: file.name, bytes: file.size });
+    file.text()
+      .then(text => {
+        const ta = document.getElementById("brief-reply");
+        if (ta) ta.value = text;
+        if (msg) msg.textContent = `${file.name} loaded (${(file.size/1024).toFixed(1)} kB) — submitting…`;
+        submitAnalystResponse(text);
+      })
+      .catch(err => {
+        if (msg) msg.textContent = `Could not read that file: ${err.message}`;
+        log("error", "analyst file unreadable", { error: err.message });
+      });
+    return;
+  }
   if (e.target.id === "api-url"){
     state.apiBase = e.target.value.trim().replace(/\/+$/, "") || state.apiBase;
     try { localStorage.setItem("nw.apiBase", state.apiBase); } catch(err){}
