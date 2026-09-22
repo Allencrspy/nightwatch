@@ -7,3 +7,4 @@ dist/
 coverage/
 .sessions.json
 .sessions.test.json
+.briefs.json

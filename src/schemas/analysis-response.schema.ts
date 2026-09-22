@@ -125,6 +125,8 @@ export const IntradayAnalysisResponseSchema = z
     analystModel: z.string().nullable().default(null),
     /** Sources the analyst consulted when researching catalysts. */
     sources: z.array(z.object({ title: z.string(), url: z.string() })).default([]),
+    /** Setups the analyst proposed that were rejected here, and why. */
+    droppedSetups: z.array(z.object({ symbol: z.string(), reason: z.string() })).default([]),
     /** The analyst's own argument against tonight's list. */
     selfCritique: z.string().nullable().default(null),
     dataNotes: z.array(z.string()),

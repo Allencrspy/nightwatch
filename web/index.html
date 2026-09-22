@@ -294,6 +294,24 @@ td.wrap{white-space:normal;min-width:210px;max-width:290px;font-size:12.5px}
 .logrow .dt{font-family:var(--mono);font-size:11px;color:var(--ink-3);white-space:pre-wrap;word-break:break-word;min-width:0}
 .logwrap{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:6px 14px}
 .conn-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.step{display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:start;margin-bottom:18px}
+.step-n{
+  width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-family:var(--mono);font-size:12px;font-weight:700;
+  background:var(--card-2);color:var(--ink-2);border:1px solid var(--line-strong);
+}
+.step.done .step-n{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.step-body{min-width:0}
+.step h3{margin-bottom:6px}
+textarea.input{
+  width:100%;min-height:160px;resize:vertical;font-family:var(--mono);
+  font-size:12px;line-height:1.5;white-space:pre;overflow-x:auto;
+}
+.brief-box{
+  max-height:220px;overflow:auto;background:var(--card-2);border:1px solid var(--line);
+  border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;
+  white-space:pre-wrap;word-break:break-word;color:var(--ink-2);
+}
 
 .list{margin:0;padding-left:18px;color:var(--ink-2);font-size:13.5px}
 .list li{margin-bottom:6px}
@@ -350,6 +368,10 @@ td.wrap{white-space:normal;min-width:210px;max-width:290px;font-size:12.5px}
       <button class="nav-item" data-view="all">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17"/></svg>
         All setups <span class="nav-count" id="nc-all">2</span>
+      </button>
+      <button class="nav-item" data-view="analyst">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5c0 4.7-3.8 8.5-8.5 8.5a8.4 8.4 0 0 1-3.8-.9L4 20.5l1.4-4.2A8.5 8.5 0 0 1 12 3.5z"/></svg>
+        Analyst <span class="nav-count" id="nc-analyst">—</span>
       </button>
       <button class="nav-item" data-view="setups">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V7m5 13V4m5 16v-9m5 9V9"/></svg>
@@ -986,6 +1008,62 @@ function rowFromApi(s, i){
     shares:s.positionSizing ? s.positionSizing.recommendedShares : null,
     tier:s.tier === "HIGH" ? "High" : "Watchlist"
   });
+}
+
+/* =========================================================================
+   PASTE BRIDGE — the framework prompt plus tonight's computed facts go to
+   whichever assistant the user already pays for; the reply comes back here.
+   The server merges and validates it exactly as it would an API response.
+   ========================================================================= */
+state.brief = { status:"idle", data:null, error:null, copied:false, submitting:false };
+
+async function generateBrief(){
+  state.brief.status = "loading"; state.brief.error = null; render();
+  try {
+    const data = await api("/api/v1/analyst/brief", {
+      method:"POST",
+      body:{ capital:state.capital, riskPercent:SCAN.risk.perTradePct, maxTrades:SCAN.risk.maxTrades }
+    });
+    state.brief.data = data;
+    state.brief.status = "ready";
+    log("ok", "brief generated", {
+      briefId: data.briefId, candidates: data.candidateCount,
+      screenedOut: data.screenedOutCount, chars: data.pasteText.length
+    });
+  } catch (err){
+    state.brief.status = "error";
+    state.brief.error = err.message;
+  }
+  render();
+}
+
+async function submitAnalystResponse(text){
+  if (!state.brief.data) return;
+  state.brief.submitting = true; state.brief.error = null; render();
+  try {
+    const plan = await api("/api/v1/analyst/response", {
+      method:"POST",
+      body:{ briefId: state.brief.data.briefId, response: text }
+    });
+    state.api.rows = (plan.setups || []).map(rowFromApi);
+    state.api.plan = plan;
+    state.api.meta = plan.market || null;
+    state.api.at = new Date();
+    state.api.status = "ok";
+    state.source = "api";
+    state.view = "all";
+    log("ok", "pasted plan accepted", {
+      setups: plan.setups.length,
+      high: plan.setups.filter(x => x.tier === "HIGH").length,
+      noHighQualitySetup: plan.noHighQualitySetup
+    });
+  } catch (err){
+    state.brief.error = err.message;
+    state.brief.detail = err.detail || null;
+    log("error", "pasted plan rejected", { error: err.message, detail: err.detail });
+  }
+  state.brief.submitting = false;
+  render();
 }
 
 async function refreshFromApi(){
@@ -1808,6 +1886,13 @@ function viewAll(){
       <div><strong>Request failed — ${esc(api.error)}</strong><div style="margin-top:6px;color:var(--ink-2)">${apiHint()}</div></div>
     </div>` : ""}
 
+    ${state.source === "api" && api.plan && (api.plan.droppedSetups||[]).length ? `<div class="banner bad" style="margin-bottom:16px">
+      <span class="glyph">✗</span>
+      <div><strong>${api.plan.droppedSetups.length} setup(s) from the analyst were rejected and are not shown.</strong>
+      <ul class="list" style="margin-top:8px">${api.plan.droppedSetups.map(d =>
+        `<li><strong>${esc(d.symbol)}</strong> — ${esc(d.reason)}</li>`).join("")}</ul></div>
+    </div>` : ""}
+
     ${state.source === "api" && api.status === "ok" ? `<div class="banner warn" style="margin-bottom:16px">
       <span class="glyph">!</span>
       <div><strong>The API supplies no structured entry conditions.</strong> Only a trigger price and a
@@ -1928,6 +2013,85 @@ function viewConnect(){
     </div>`;
 }
 
+function viewAnalyst(){
+  const b = state.brief;
+  const d = b.data;
+
+  return `
+    <div class="page-head">
+      <div><h1>Analyst</h1><p class="sub">Run the framework in whichever assistant you already pay for, on verified numbers.</p></div>
+      <div class="head-right">
+        ${d ? `<span class="chip good"><span class="glyph">✓</span> ${d.candidateCount} candidates</span>` : ""}
+      </div>
+    </div>
+
+    ${b.error ? `<div class="banner bad" style="margin-bottom:16px"><span class="glyph">✗</span>
+      <div><strong>${esc(b.error)}</strong>
+      ${Array.isArray(b.detail) && b.detail.length
+        ? `<ul class="list" style="margin-top:8px">${b.detail.slice(0,6).map(x => `<li>${esc(x)}</li>`).join("")}</ul>`
+        : ""}</div></div>` : ""}
+
+    <div class="card">
+      <div class="step ${d ? "done" : ""}">
+        <div class="step-n">1</div>
+        <div class="step-body">
+          <h3>Generate tonight's brief</h3>
+          <p class="muted">Scans the F&amp;O universe, computes every indicator from Dhan data, and assembles the framework prompt with the facts. Takes about 20 seconds.</p>
+          <button class="btn primary" id="brief-gen" style="margin-top:12px" ${b.status==="loading"?"disabled":""}>
+            ${b.status==="loading" ? `<span class="spin"></span> Scanning…` : `<span class="glyph">↻</span> ${d ? "Regenerate" : "Generate brief"}`}
+          </button>
+          ${d ? `<p class="dim" style="margin-top:10px;font-size:12px">
+            Brief <span class="num">${esc(d.briefId)}</span> · ${d.candidateCount} candidates ·
+            ${d.screenedOutCount} screened out · ${(d.pasteText.length/1000).toFixed(1)}k characters ·
+            valid 18 hours</p>` : ""}
+        </div>
+      </div>
+
+      <div class="step ${b.copied ? "done" : ""}">
+        <div class="step-n">2</div>
+        <div class="step-body">
+          <h3>Copy it into your assistant</h3>
+          <p class="muted">Paste into ChatGPT or Claude and send. The prompt tells it to answer in JSON — and to say plainly when nothing is worth trading.</p>
+          ${d ? `
+            <div class="toolbar" style="margin-top:12px;margin-bottom:10px">
+              <button class="btn" id="brief-copy"><span class="glyph">⧉</span> ${b.copied ? "Copied" : "Copy brief"}</button>
+              <button class="btn" id="brief-save"><span class="glyph">↓</span> Download</button>
+              <span class="dim" id="brief-msg" style="font-size:12px"></span>
+            </div>
+            <div class="brief-box">${esc(d.pasteText.slice(0, 1400))}${d.pasteText.length > 1400 ? "\n\n… " + (d.pasteText.length - 1400).toLocaleString() + " more characters" : ""}</div>`
+          : `<p class="dim" style="margin-top:8px;font-size:12px">Generate a brief first.</p>`}
+        </div>
+      </div>
+
+      <div class="step" style="margin-bottom:0">
+        <div class="step-n">3</div>
+        <div class="step-body">
+          <h3>Paste the reply back</h3>
+          <p class="muted">The whole reply is fine — surrounding prose and code fences are stripped. It is then checked against the same rules an API answer would face: every symbol must be one from the brief, stops on the correct side of entry, targets ordered, and all sizing recomputed here.</p>
+          <textarea class="input" id="brief-reply" placeholder='Paste the analyst&apos;s reply here…' spellcheck="false" ${d?"":"disabled"}></textarea>
+          <button class="btn primary" id="brief-submit" style="margin-top:10px" ${d && !b.submitting ? "" : "disabled"}>
+            ${b.submitting ? `<span class="spin"></span> Validating…` : `<span class="glyph">→</span> Process reply`}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><h2>Why this works on verified numbers</h2></div>
+      <div class="card">
+        <ul class="list">
+          <li>Every price, EMA, ATR, volume ratio and 52-week level is computed here from Dhan market data — the assistant is told to use those numbers and introduce none of its own.</li>
+          <li>It never receives a raw candle series and is never asked to calculate, which is where invented figures come from.</li>
+          <li>A mechanical reading of the framework travels with each candidate as a second opinion, labelled advisory, that it may overrule with reasons.</li>
+          <li>Risk-reward and position size are always recomputed server-side from the levels it returns.</li>
+        </ul>
+        <p class="dim" style="margin-top:10px;font-size:12px">
+          Catalysts are marked UNKNOWN in the brief. If your assistant can browse, it may research them —
+          that is how the manual runs of this framework answered Part 8.</p>
+      </div>
+    </div>`;
+}
+
 function viewLogs(){
   const levels = { info:0, ok:0, warn:0, error:0 };
   LOG.entries.forEach(e => { levels[e.level] = (levels[e.level] || 0) + 1; });
@@ -1980,11 +2144,13 @@ function viewLogs(){
     </div>`;
 }
 
-const VIEWS = { desk:viewDesk, all:viewAll, setups:viewSetups, market:viewMarket, rejected:viewRejected, risk:viewRisk, health:viewHealth, connect:viewConnect, logs:viewLogs };
+const VIEWS = { desk:viewDesk, all:viewAll, analyst:viewAnalyst, setups:viewSetups, market:viewMarket, rejected:viewRejected, risk:viewRisk, health:viewHealth, connect:viewConnect, logs:viewLogs };
 
 /* ========================= render + events ========================= */
 function render(){
   document.getElementById("main").innerHTML = VIEWS[state.view]();
+  const nAn = document.getElementById("nc-analyst");
+  if (nAn) nAn.textContent = state.brief.data ? String(state.brief.data.candidateCount) : "—";
   const nAll = document.getElementById("nc-all");
   if (nAll) nAll.textContent = state.source === "api" ? state.api.rows.length : SCAN.setups.length;
   document.querySelectorAll(".nav-item").forEach(b => {
@@ -2002,6 +2168,29 @@ document.addEventListener("click", e => {
   if (ph){ state.phase = ph.dataset.phase; render(); return; }
 
   if (e.target.closest("#refresh")){ refreshFromApi(); return; }
+  if (e.target.closest("#brief-gen")){ generateBrief(); return; }
+  if (e.target.closest("#brief-copy")){
+    const msg = document.getElementById("brief-msg");
+    navigator.clipboard.writeText(state.brief.data.pasteText)
+      .then(() => { state.brief.copied = true; render(); })
+      .catch(err => { if (msg) msg.textContent = `Copy failed: ${err.message}`; });
+    return;
+  }
+  if (e.target.closest("#brief-save")){
+    const blob = new Blob([state.brief.data.pasteText], { type:"text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `nightwatch-brief-${state.brief.data.briefId}.txt`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    state.brief.copied = true; render();
+    return;
+  }
+  if (e.target.closest("#brief-submit")){
+    const ta = document.getElementById("brief-reply");
+    if (ta && ta.value.trim()) submitAnalystResponse(ta.value);
+    return;
+  }
   if (e.target.closest("#auth-login")){ loginWithDhan(); return; }
   if (e.target.closest("#auth-check")){ refreshAuthStatus().then(render); return; }
   if (e.target.closest("#auth-out")){ disconnect(); return; }

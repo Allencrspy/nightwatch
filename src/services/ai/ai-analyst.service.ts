@@ -146,7 +146,7 @@ export class AiAnalystService {
     };
   }
 
-  private synthesizeRuleBased(input: AnalystInput): IntradayAnalysisResponse {
+  public synthesizeRuleBased(input: AnalystInput): IntradayAnalysisResponse {
     const {
       scoredCandidates, rejected, stageOrder, funnel, universeSize,
       niftyLastPrice, niftyChangePercent, bankNiftyLastPrice,
@@ -191,6 +191,7 @@ export class AiAnalystService {
       analyst: 'RULE_ENGINE',
       analystModel: null,
       sources: [],
+      droppedSetups: [],
       promptVersion: null,
       selfCritique: null,
       dataNotes,
@@ -253,7 +254,33 @@ export class AiAnalystService {
     input: AnalystInput,
     base: IntradayAnalysisResponse
   ): Promise<IntradayAnalysisResponse> {
-    const sheet: FactSheet = buildFactSheet({
+    const { prompt, factSheet } = this.buildBrief(input);
+
+    logger.info(
+      { candidates: factSheet.candidates.length, promptVersion: PROMPT_VERSION },
+      'Running framework analyst'
+    );
+
+    const result = await runAnalyst(prompt, JSON.stringify(factSheet));
+    logger.info(
+      { model: result.model, usage: result.usage, sources: result.citations.length },
+      'Analyst finished'
+    );
+
+    return this.mergeAnalystOutput(result.json, input, base, {
+      model: result.model,
+      sources: result.citations,
+    });
+  }
+
+  /**
+   * The exact material an analyst needs: the framework as instructions, and
+   * the session as fully-computed facts. Used by the API path and by the
+   * paste bridge, so what a person pastes into a chat window is byte-for-byte
+   * what the API would have sent.
+   */
+  public buildBrief(input: AnalystInput): { prompt: string; factSheet: FactSheet } {
+    const factSheet = buildFactSheet({
       scored: input.scoredCandidates,
       screenedOut: input.rejected.map((r) => ({ symbol: r.symbol, stage: r.stage, reason: r.reason })),
       nifty: input.niftyQuote,
@@ -263,29 +290,40 @@ export class AiAnalystService {
       riskPercent: input.riskPercent,
       maxTrades: input.maxTrades,
     });
+    return { prompt: FRAMEWORK_SYSTEM_PROMPT, factSheet };
+  }
 
-    logger.info(
-      { candidates: sheet.candidates.length, screenedOut: sheet.screenedOut.length, promptVersion: PROMPT_VERSION },
-      'Running framework analyst'
-    );
-
-    const result = await runAnalyst(FRAMEWORK_SYSTEM_PROMPT, JSON.stringify(sheet));
-    const out = result.json;
-
-    logger.info(
-      { model: result.model, usage: result.usage, sources: result.citations.length },
-      'Analyst finished'
-    );
-
+  /**
+   * Turns an analyst's JSON into a validated plan.
+   *
+   * Whether the JSON arrived over the API or through a person's clipboard
+   * makes no difference here: the same symbols are checked against the fact
+   * sheet, the same geometry is rejected, and the same arithmetic is redone
+   * server-side. A pasted response gets no more trust than an API one.
+   */
+  public mergeAnalystOutput(
+    out: any,
+    input: AnalystInput,
+    base: IntradayAnalysisResponse,
+    meta: { model: string | null; sources: Array<{ title: string; url: string }> }
+  ): IntradayAnalysisResponse {
     const known = new Map(input.scoredCandidates.map((sc) => [sc.candidate.quote.symbol, sc.candidate]));
-    const maxRiskAmount = sheet.risk.maxRiskPerTrade;
+    const maxRiskAmount = Number(((input.capital * input.riskPercent) / 100).toFixed(2));
     const setups: IntradaySetup[] = [];
+    // Every rejection is reported. Returning zero setups with no explanation
+    // looks identical to "the analyst found nothing", and they are very
+    // different things — one is a verdict, the other is a fault.
+    const dropped: Array<{ symbol: string; reason: string }> = [];
 
     for (const raw of Array.isArray(out.setups) ? out.setups : []) {
       const candidate = known.get(raw.symbol);
       if (!candidate) {
         // A symbol that was not in the fact sheet cannot have been analysed.
         logger.warn({ symbol: raw.symbol }, 'Analyst returned a symbol absent from the fact sheet; dropped');
+        dropped.push({
+          symbol: String(raw.symbol ?? 'unnamed'),
+          reason: 'Not in tonight\'s brief, so it cannot have been analysed against real data.',
+        });
         continue;
       }
 
@@ -297,6 +335,12 @@ export class AiAnalystService {
       const risk = bias === 'LONG' ? entryTrigger - stopLoss : stopLoss - entryTrigger;
       if (!Number.isFinite(risk) || risk <= 0 || targets.length !== 2 || targets.some((t: number) => !Number.isFinite(t))) {
         logger.warn({ symbol: raw.symbol, entryTrigger, stopLoss, targets }, 'Analyst setup has unusable geometry; dropped');
+        dropped.push({
+          symbol: String(raw.symbol),
+          reason: bias === 'LONG'
+            ? `Stop ${stopLoss} is not below entry ${entryTrigger}, or the two targets are unusable.`
+            : `Stop ${stopLoss} is not above entry ${entryTrigger}, or the two targets are unusable.`,
+        });
         continue;
       }
 
@@ -306,6 +350,10 @@ export class AiAnalystService {
       const shares = Math.max(0, Math.min(byRisk, byCapital));
       if (shares === 0) {
         logger.warn({ symbol: raw.symbol }, 'Setup sizes to zero shares at this capital; dropped');
+        dropped.push({
+          symbol: String(raw.symbol),
+          reason: `Sizes to zero shares: a ${risk.toFixed(2)} stop distance against a ${maxRiskAmount} risk budget, or the entry exceeds capital.`,
+        });
         continue;
       }
 
@@ -341,12 +389,21 @@ export class AiAnalystService {
 
     const noHighQualitySetup = Boolean(out.noHighQualitySetup) || !setups.some((s) => s.tier === 'HIGH');
 
+    const notes = [...base.dataNotes];
+    if (dropped.length) {
+      notes.push(
+        `${dropped.length} setup(s) from the analyst were rejected before reaching you — see droppedSetups.`
+      );
+    }
+
     return {
       ...base,
       analyst: 'OPENAI',
-      analystModel: result.model,
-      sources: result.citations,
+      analystModel: meta.model,
+      sources: meta.sources,
       promptVersion: PROMPT_VERSION,
+      dataNotes: notes,
+      droppedSetups: dropped,
       selfCritique: out.selfCritique ?? null,
       noHighQualitySetup,
       market: {
