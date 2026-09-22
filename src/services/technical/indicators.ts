@@ -14,7 +14,21 @@ export interface TechnicalMetrics {
   closingStrength: number; // 0.0 to 1.0 (Close relative to Day High/Low range)
   trendAlignment: 'STRONG_BULLISH' | 'BULLISH' | 'NEUTRAL' | 'BEARISH' | 'STRONG_BEARISH';
   breakoutType: 'BREAKOUT' | 'BREAKDOWN' | 'CONSOLIDATION' | 'PULLBACK' | 'NONE';
+  /** Wilder ATR(14) in rupees, and as a share of price. Drives the extension filter. */
+  atr14: number;
+  atrPercent: number;
+  /** 52-week extremes, or the widest window the candle history allows. */
+  high52w: number;
+  low52w: number;
+  /** True when fewer than 250 sessions were available to compute them. */
+  yearWindowIncomplete: boolean;
+  /** Cumulative return over the last four sessions — a multi-day run is extension. */
+  return4Session: number;
+  /** Close relative to the 20-EMA, as a percentage. */
+  distanceFromEma20Percent: number;
 }
+
+const SESSIONS_PER_YEAR = 250;
 
 export class TechnicalIndicatorService {
   /**
@@ -106,6 +120,52 @@ export class TechnicalIndicatorService {
   }
 
   /**
+   * Wilder's ATR(14). Seeded with the simple mean of the first 14 true ranges,
+   * then smoothed — not a plain rolling average, which runs materially lower.
+   */
+  public static calculateATR(candles: Candle[], period = 14): number {
+    if (candles.length < period + 1) return 0;
+
+    const trueRanges: number[] = [];
+    for (let i = 1; i < candles.length; i++) {
+      const c = candles[i];
+      const prevClose = candles[i - 1].close;
+      trueRanges.push(
+        Math.max(c.high - c.low, Math.abs(c.high - prevClose), Math.abs(c.low - prevClose))
+      );
+    }
+
+    let atr = trueRanges.slice(0, period).reduce((a, b) => a + b, 0) / period;
+    for (let i = period; i < trueRanges.length; i++) {
+      atr = (atr * (period - 1) + trueRanges[i]) / period;
+    }
+    return Number(atr.toFixed(2));
+  }
+
+  /** Highest high and lowest low over the last year of sessions available. */
+  public static calculateYearRange(candles: Candle[]): {
+    high52w: number;
+    low52w: number;
+    yearWindowIncomplete: boolean;
+  } {
+    const window = candles.slice(-SESSIONS_PER_YEAR);
+    return {
+      high52w: Number(Math.max(...window.map((c) => c.high)).toFixed(2)),
+      low52w: Number(Math.min(...window.map((c) => c.low)).toFixed(2)),
+      yearWindowIncomplete: candles.length < SESSIONS_PER_YEAR,
+    };
+  }
+
+  /** Cumulative percentage return over the last `sessions` candles. */
+  public static calculateRecentRun(candles: Candle[], sessions = 4): number {
+    if (candles.length < sessions + 1) return 0;
+    const from = candles[candles.length - 1 - sessions].close;
+    const to = candles[candles.length - 1].close;
+    if (from <= 0) return 0;
+    return Number((((to - from) / from) * 100).toFixed(2));
+  }
+
+  /**
    * Determine overall trend alignment with EMAs
    */
   public static calculateTrendAlignment(
@@ -169,6 +229,9 @@ export class TechnicalIndicatorService {
       breakoutType = 'CONSOLIDATION';
     }
 
+    const atr14 = this.calculateATR(candles, 14);
+    const { high52w, low52w, yearWindowIncomplete } = this.calculateYearRange(candles);
+
     return {
       ema20,
       ema50,
@@ -183,6 +246,14 @@ export class TechnicalIndicatorService {
       closingStrength,
       trendAlignment,
       breakoutType,
+      atr14,
+      atrPercent: lastCandle.close > 0 ? Number(((atr14 / lastCandle.close) * 100).toFixed(2)) : 0,
+      high52w,
+      low52w,
+      yearWindowIncomplete,
+      return4Session: this.calculateRecentRun(candles, 4),
+      distanceFromEma20Percent:
+        ema20 > 0 ? Number((((lastCandle.close - ema20) / ema20) * 100).toFixed(2)) : 0,
     };
   }
 }

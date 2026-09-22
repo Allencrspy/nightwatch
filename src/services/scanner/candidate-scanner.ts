@@ -4,6 +4,7 @@ import { TechnicalIndicatorService, type TechnicalMetrics } from '../technical/i
 import { RelativeStrengthService, type RelativeStrengthMetrics } from '../technical/relative-strength.js';
 import { FnoAnalysisService, type FnoAnalysisResult } from '../fno/fno-analysis.service.js';
 import { NewsCatalystService, type NewsCatalystResult } from '../news/news-catalyst.service.js';
+import { runFramework, STAGE_ORDER, STAGE_PART, type FilterTrace } from './framework-filters.js';
 import { DataUnavailableError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
 
@@ -17,10 +18,19 @@ export interface StockCandidateData {
   fno: FnoAnalysisResult;
   news: NewsCatalystResult;
   candidateBias: 'LONG' | 'SHORT' | 'NEUTRAL';
+  /** Every framework stage that ran, with what each concluded. */
+  filters: FilterTrace;
 }
 
 export interface ScanResult {
+  /** Survivors of the filter pipeline, HIGH and WATCHLIST tiers. */
   candidates: StockCandidateData[];
+  /** Everything a filter rejected, each carrying the filter and the reason. */
+  rejected: StockCandidateData[];
+  /** The framework's stage order, so the dashboard can show the funnel as it ran. */
+  stageOrder: readonly string[];
+  /** How many symbols each stage rejected, in order. */
+  funnel: Array<{ stage: string; part: string; rejected: number }>;
   niftyQuote: MarketQuote;
   bankNiftyQuote: MarketQuote;
   sectorPerformances: Array<{ sector: string; changePercent: number }>;
@@ -44,6 +54,7 @@ export class CandidateScannerService {
 
     const sectorPerformances = await this.calculateSectorPerformances();
     const candidates: StockCandidateData[] = [];
+    const rejected: StockCandidateData[] = [];
     const skipped: Array<{ symbol: string; reason: string }> = [];
 
     for (const symbol of FNO_STOCK_UNIVERSE) {
@@ -54,12 +65,15 @@ export class CandidateScannerService {
         const technical = TechnicalIndicatorService.analyze(candles);
         const sectorName = SECTOR_BY_SYMBOL.get(symbol) ?? 'NIFTY 50';
         const sectorObj = sectorPerformances.find((s) => s.sector === sectorName);
-        const sectorChangePercent = sectorObj ? sectorObj.changePercent : niftyQuote.changePercent;
+        // Null, not the Nifty's move. A missing sector reading is unknown, and
+        // the sector filter treats unknown as "cannot confirm" rather than
+        // quietly substituting the index and calling it sector confirmation.
+        const sectorChangePercent = sectorObj ? sectorObj.changePercent : null;
 
         const relativeStrength = RelativeStrengthService.calculate(
           quote.changePercent,
           niftyQuote.changePercent,
-          sectorChangePercent
+          sectorChangePercent ?? niftyQuote.changePercent
         );
 
         const fno = FnoAnalysisService.analyze(
@@ -70,19 +84,28 @@ export class CandidateScannerService {
         const news = NewsCatalystService.getNewsForSymbol(symbol);
         const turnoverCr = Number(((quote.lastPrice * quote.volume) / 1e7).toFixed(2));
 
-        const passesMove = Math.abs(quote.changePercent) >= SCANNER_THRESHOLDS.minAbsPriceChangePercent;
-        const passesRvol = technical.rvol >= SCANNER_THRESHOLDS.minRvol;
-        const passesLiquidity = turnoverCr >= SCANNER_THRESHOLDS.minLiquidityAmountInCr;
-
-        if (!(passesMove || passesRvol) || !passesLiquidity) continue;
-
         let candidateBias: StockCandidateData['candidateBias'] = 'NEUTRAL';
         if (quote.changePercent > 0 && technical.closingStrength >= 0.5) candidateBias = 'LONG';
         else if (quote.changePercent < 0 && technical.closingStrength <= 0.5) candidateBias = 'SHORT';
 
-        candidates.push({
+        const candidate: StockCandidateData = {
           quote, sectorName, turnoverCr, technical, relativeStrength, fno, news, candidateBias,
+          filters: {
+            symbol, tier: 'REJECTED', stages: [], rejectedBy: null, reason: null, volumeCharacter: null,
+          },
+        };
+
+        // The framework's stages, in the framework's order.
+        candidate.filters = runFramework(candidate, {
+          sectorChangePercent,
+          niftyChangePercent: niftyQuote.changePercent,
         });
+
+        if (candidate.filters.tier === 'REJECTED') {
+          rejected.push(candidate);
+          continue;
+        }
+        candidates.push(candidate);
       } catch (err: any) {
         // One bad symbol must not fabricate a result, but must not kill the scan.
         skipped.push({ symbol, reason: err?.message ?? String(err) });
@@ -98,8 +121,33 @@ export class CandidateScannerService {
       );
     }
 
-    logger.info({ candidates: candidates.length, skipped: skipped.length }, 'Scan complete');
-    return { candidates, niftyQuote, bankNiftyQuote, sectorPerformances, skipped };
+    const funnel = STAGE_ORDER.map((stage) => ({
+      stage,
+      part: STAGE_PART[stage],
+      rejected: rejected.filter((r) => r.filters.rejectedBy === stage).length,
+    }));
+
+    logger.info(
+      {
+        high: candidates.filter((c) => c.filters.tier === 'HIGH').length,
+        watchlist: candidates.filter((c) => c.filters.tier === 'WATCHLIST').length,
+        rejected: rejected.length,
+        skipped: skipped.length,
+        funnel,
+      },
+      'Scan complete'
+    );
+
+    return {
+      candidates,
+      rejected,
+      stageOrder: STAGE_ORDER,
+      funnel,
+      niftyQuote,
+      bankNiftyQuote,
+      sectorPerformances,
+      skipped,
+    };
   }
 
   /** Sector move, averaged over constituents that actually returned a quote. */

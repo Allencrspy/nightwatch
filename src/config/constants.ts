@@ -67,6 +67,44 @@ export const SCORING_WEIGHTS = {
   news: 5,
 };
 
+/**
+ * Thresholds for the framework pipeline in framework-filters.ts. Calibrated
+ * against the worked example in the night-before scan, where they reproduce
+ * its verdicts: the pharma long clears at the top tier, the relative-strength
+ * long in a weak sector is watchlist-only, the 8%-on-top-of-15% gainer is
+ * demoted for extension, and the short with support immediately below it is
+ * rejected for risk/reward.
+ */
+export const FILTER_THRESHOLDS = {
+  /** Close must sit in the upper (long) or lower (short) half of the day. */
+  minClosingStrength: 0.5,
+  /** "Near the day's high" for Part 5. Between this and 0.5 is a demotion. */
+  strongCloseStrength: 0.7,
+  /** An intraday stop further than this is not an intraday stop. */
+  maxStopDistancePercent: 5,
+  /** A trigger further than this from the close may not come into play. */
+  maxTriggerDistancePercent: 3,
+  /** Below this, today's volume did not confirm the move. */
+  minRvolForConviction: 1.0,
+  /** A sector moving this hard against the trade rejects it outright. */
+  sectorOpposingRejectPercent: 1.5,
+  /** T1 sits at this multiple of risk, so room-to-move is measured against it. */
+  targetRiskMultiple: 2,
+  /**
+   * Room beyond T1 by this factor is "comfortable" rather than "marginal".
+   * Calibrated so the framework's worked example — room the scan itself calls
+   * "acceptable" — clears rather than being demoted.
+   */
+  comfortableRoomMultiple: 1.2,
+
+  extensionModerateAtrMultiple: 2,
+  extensionSevereAtrMultiple: 3,
+  extensionModerateRunPercent: 10,
+  extensionSevereRunPercent: 18,
+  extensionModerateEmaPercent: 7,
+  extensionSevereEmaPercent: 12,
+};
+
 export const SCANNER_THRESHOLDS = {
   minAbsPriceChangePercent: 1.5,
   minRvol: 1.5,

@@ -18,9 +18,17 @@ const goodBreakdown = {
   totalScore: 95, assessableMax: 95, unknownFactors: ['news'],
 };
 
+const goodStages = [
+  { stage: 'priceMovement', part: 'Part 2 — price movement', outcome: 'PASS' as const, note: 'Up 2.10%.' },
+  { stage: 'volume', part: 'Part 2 — volume', outcome: 'PASS' as const, note: '2.1x the 20-day average.' },
+];
+
 const goodSetup = {
   symbol: 'RELIANCE',
   bias: 'LONG' as const,
+  tier: 'HIGH' as const,
+  stages: goodStages,
+  volumeCharacter: 'Breakout: cleared the 20-day swing high.',
   setupType: 'BREAKOUT' as const,
   score: 95,
   scoreBreakdown: goodBreakdown,
@@ -106,6 +114,12 @@ const goodResponse = {
   generatedAt: new Date().toISOString(),
   analyst: 'RULE_ENGINE' as const,
   dataNotes: [],
+  noHighQualitySetup: false,
+  framework: {
+    stageOrder: ['priceMovement', 'volume'],
+    funnel: [{ stage: 'priceMovement', part: 'Part 2 — price movement', rejected: 61 }],
+    universeSize: 80,
+  },
   market: {
     bias: 'NEUTRAL' as const,
     nifty: { lastPrice: 23414.3, changePercent: 0.29 },

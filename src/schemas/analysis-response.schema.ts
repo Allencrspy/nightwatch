@@ -29,10 +29,23 @@ const FACTOR_KEYS = [
   'trend', 'sector', 'liquidity', 'news',
 ] as const;
 
+export const StageResultSchema = z.object({
+  stage: z.string(),
+  part: z.string(),
+  outcome: z.enum(['PASS', 'DEMOTE', 'REJECT']),
+  note: z.string().nullable(),
+});
+
 export const IntradaySetupSchema = z
   .object({
     symbol: z.string().min(1),
     bias: z.enum(['LONG', 'SHORT']),
+    /** HIGH cleared every stage; WATCHLIST was demoted by at least one. */
+    tier: z.enum(['HIGH', 'WATCHLIST']),
+    /** Every framework stage that ran, in order, with what it concluded. */
+    stages: z.array(StageResultSchema).min(1),
+    /** Part 2: what the volume actually accompanied. */
+    volumeCharacter: z.string().nullable(),
     setupType: z.enum([
       'BREAKOUT', 'BREAKDOWN', 'CONTINUATION', 'PULLBACK', 'SUPPORT_REVERSAL', 'RESISTANCE_REJECTION',
     ]),
@@ -103,6 +116,18 @@ export const IntradayAnalysisResponseSchema = z
     /** How the setups were produced, so the dashboard never has to guess. */
     analyst: z.enum(['OPENAI', 'RULE_ENGINE']),
     dataNotes: z.array(z.string()),
+    /** Part 10 rule: never force a trade. True when nothing cleared every stage. */
+    noHighQualitySetup: z.boolean(),
+    /** The framework as executed: stage order and how many each stage removed. */
+    framework: z.object({
+      stageOrder: z.array(z.string()).min(1),
+      funnel: z.array(z.object({
+        stage: z.string(),
+        part: z.string(),
+        rejected: z.number().int().nonnegative(),
+      })),
+      universeSize: z.number().int().nonnegative(),
+    }),
     market: z.object({
       bias: z.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
       nifty: z.object({ lastPrice: price, changePercent: z.number() }),
@@ -115,7 +140,13 @@ export const IntradayAnalysisResponseSchema = z
     top3BestSetups: z.array(z.string()),
     topLongCandidates: z.array(z.string()),
     topShortCandidates: z.array(z.string()),
-    stocksToAvoid: z.array(z.object({ symbol: z.string(), reason: z.string().min(1) })),
+    /** Part 19: every name a stage removed, with the stage that removed it. */
+    stocksToAvoid: z.array(z.object({
+      symbol: z.string(),
+      stage: z.string(),
+      part: z.string(),
+      reason: z.string().min(1),
+    })),
     checklist900to915: z.array(z.string()),
     /** Symbols the scan could not evaluate. Empty is fine; hidden is not. */
     skipped: z.array(z.object({ symbol: z.string(), reason: z.string() })),
@@ -148,6 +179,30 @@ export const IntradayAnalysisResponseSchema = z
         });
       }
     });
+
+    // "Do not force a trade." A top-tier setup and the no-setup flag cannot coexist.
+    if (r.noHighQualitySetup && r.setups.some((s) => s.tier === 'HIGH')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['noHighQualitySetup'],
+        message: 'noHighQualitySetup is true but a HIGH tier setup was returned',
+      });
+    }
+    if (!r.noHighQualitySetup && r.setups.length > 0 && !r.setups.some((s) => s.tier === 'HIGH')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['noHighQualitySetup'],
+        message: 'no HIGH tier setup was returned but noHighQualitySetup is false',
+      });
+    }
+    // Part 12 asks for roughly 5-10 names, with the best three highlighted.
+    if (r.top3BestSetups.length > 3) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['top3BestSetups'],
+        message: `top3BestSetups holds ${r.top3BestSetups.length} entries`,
+      });
+    }
 
     if (dailyLossLimit > capital * 0.02) {
       ctx.addIssue({

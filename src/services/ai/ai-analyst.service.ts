@@ -12,6 +12,11 @@ export interface ScoredCandidate {
 
 export interface AnalystInput {
   scoredCandidates: ScoredCandidate[];
+  /** Names a framework stage removed, each carrying the stage and reason. */
+  rejected: Array<{ symbol: string; stage: string; part: string; reason: string }>;
+  stageOrder: readonly string[];
+  funnel: Array<{ stage: string; part: string; rejected: number }>;
+  universeSize: number;
   niftyLastPrice: number;
   niftyChangePercent: number;
   bankNiftyLastPrice: number;
@@ -108,6 +113,9 @@ export class AiAnalystService {
     return {
       symbol: quote.symbol,
       bias: candidateBias,
+      tier: sc.candidate.filters.tier === 'HIGH' ? 'HIGH' : 'WATCHLIST',
+      stages: sc.candidate.filters.stages,
+      volumeCharacter: sc.candidate.filters.volumeCharacter,
       setupType: long
         ? technical.breakoutType === 'BREAKOUT' ? 'BREAKOUT' : 'CONTINUATION'
         : technical.breakoutType === 'BREAKDOWN' ? 'BREAKDOWN' : 'RESISTANCE_REJECTION',
@@ -137,7 +145,8 @@ export class AiAnalystService {
 
   private synthesizeRuleBased(input: AnalystInput): IntradayAnalysisResponse {
     const {
-      scoredCandidates, niftyLastPrice, niftyChangePercent, bankNiftyLastPrice,
+      scoredCandidates, rejected, stageOrder, funnel, universeSize,
+      niftyLastPrice, niftyChangePercent, bankNiftyLastPrice,
       bankNiftyChangePercent, sectorPerformances, skipped, capital, riskPercent, maxTrades,
     } = input;
 
@@ -152,7 +161,7 @@ export class AiAnalystService {
 
     const setups: IntradaySetup[] = [];
     for (const sc of sorted) {
-      if (setups.length >= 5) break;
+      if (setups.length >= 10) break;
       const s = this.buildSetup(sc, capital, maxRiskAmount);
       if (s) setups.push(s);
     }
@@ -164,10 +173,22 @@ export class AiAnalystService {
     ];
     if (skipped.length) dataNotes.push(`${skipped.length} symbols could not be fetched and were excluded.`);
 
+    // "Do not force a trade." A watchlist of demoted names is not a setup.
+    const noHighQualitySetup = !setups.some((s) => s.tier === 'HIGH');
+    if (noHighQualitySetup) {
+      dataNotes.push(
+        setups.length === 0
+          ? 'No high-quality trade setup based on the available data. Staying out beats forcing a trade.'
+          : 'No setup cleared every stage. The names below are watchlist-only, not trades.'
+      );
+    }
+
     return {
       generatedAt: new Date().toISOString(),
       analyst: 'RULE_ENGINE',
       dataNotes,
+      noHighQualitySetup,
+      framework: { stageOrder: [...stageOrder], funnel, universeSize },
       market: {
         bias: this.determineMarketBias(niftyChangePercent, bankNiftyChangePercent),
         nifty: { lastPrice: niftyLastPrice, changePercent: niftyChangePercent },
@@ -182,21 +203,13 @@ export class AiAnalystService {
         ],
       },
       setups,
-      top3BestSetups: setups.slice(0, 3).map((s) => s.symbol),
+      // Part 12: highlight the best three, and only from the top tier.
+      top3BestSetups: setups.filter((s) => s.tier === 'HIGH').slice(0, 3).map((s) => s.symbol),
       topLongCandidates: setups.filter((s) => s.bias === 'LONG').map((s) => s.symbol),
       topShortCandidates: setups.filter((s) => s.bias === 'SHORT').map((s) => s.symbol),
-      // Only names this scan actually rejected on structure. Previously two
-      // tickers were hardcoded here with invented reasons.
-      stocksToAvoid: sorted
-        .filter((sc) => !setups.some((s) => s.symbol === sc.candidate.quote.symbol))
-        .slice(0, 5)
-        .map((sc) => ({
-          symbol: sc.candidate.quote.symbol,
-          reason:
-            sc.candidate.candidateBias === 'NEUTRAL'
-              ? 'No directional bias: close sat mid-range relative to the day.'
-              : 'Structural stop and trigger did not produce a workable intraday risk.',
-        })),
+      // Part 19. Every entry is a name a named stage removed, with its reason.
+      // Two tickers used to be hardcoded here with invented explanations.
+      stocksToAvoid: rejected.slice(0, 10),
       checklist900to915: [
         'Check the opening gap against each setup trigger',
         'Confirm the opening price still leaves the planned risk-reward intact',
@@ -257,6 +270,8 @@ RULES
       generatedAt: new Date().toISOString(),
       analyst: 'OPENAI',
       dataNotes: base.dataNotes,
+      noHighQualitySetup: base.noHighQualitySetup,
+      framework: base.framework,
       skipped: input.skipped,
     };
   }

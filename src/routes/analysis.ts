@@ -8,6 +8,7 @@ import { DhanMarketDataService } from '../services/dhan/dhan-market-data.service
 import { DhanAuthService } from '../services/auth/dhan-auth.service.js';
 import { requireSession } from '../plugins/require-session.js';
 import { NotAuthenticatedError, AppError } from '../utils/errors.js';
+import { FNO_STOCK_UNIVERSE } from '../config/constants.js';
 import { logger } from '../utils/logger.js';
 
 export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
@@ -47,6 +48,15 @@ export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
 
       const plan = await aiAnalyst.analyzeIntradaySetups({
         scoredCandidates,
+        rejected: scan.rejected.map((r) => ({
+          symbol: r.quote.symbol,
+          stage: r.filters.rejectedBy ?? 'unknown',
+          part: r.filters.stages[r.filters.stages.length - 1]?.part ?? 'unknown',
+          reason: r.filters.reason ?? 'No reason recorded.',
+        })),
+        stageOrder: scan.stageOrder,
+        funnel: scan.funnel,
+        universeSize: FNO_STOCK_UNIVERSE.length,
         niftyLastPrice: scan.niftyQuote.lastPrice,
         niftyChangePercent: scan.niftyQuote.changePercent,
         bankNiftyLastPrice: scan.bankNiftyQuote.lastPrice,
