@@ -71,6 +71,7 @@ export interface CandidateFacts {
     bias: string;
     volumeCharacter: string | null;
     notes: Array<{ part: string; outcome: string; note: string | null }>;
+    objections: Array<{ part: string; reason: string }>;
   };
 
   /** The deterministic score, for reference. The analyst sets its own. */
@@ -152,6 +153,9 @@ export function candidateFacts(c: StockCandidateData, score: ScoreBreakdown): Ca
       notes: c.filters.stages
         .filter((s) => s.outcome !== 'PASS')
         .map((s) => ({ part: s.part, outcome: s.outcome, note: s.note })),
+      // Objections strong enough that a mechanical reading would have
+      // rejected the name outright. The analyst may still disagree.
+      objections: c.filters.concerns.map((x) => ({ part: x.part, reason: x.reason })),
     },
 
     referenceScore: score.totalScore,

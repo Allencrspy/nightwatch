@@ -49,7 +49,7 @@ const candidate = (over: Partial<StockCandidateData> = {}): StockCandidateData =
   },
   news: { available: false, hasNews: false, sentiment: 'UNKNOWN', score: null, note: '' },
   candidateBias: 'LONG',
-  filters: { symbol: 'SUNPHARMA', tier: 'REJECTED', stages: [], rejectedBy: null, reason: null, volumeCharacter: null },
+  filters: { symbol: 'SUNPHARMA', tier: 'REJECTED', stages: [], rejectedBy: null, reason: null, concerns: [], volumeCharacter: null },
   ...over,
 });
 
@@ -159,8 +159,12 @@ describe('Part 13 — risk/reward as room to move', () => {
       candidateBias: 'SHORT',
     }), { sectorChangePercent: -0.9, niftyChangePercent: 0.29 });
 
-    expect(trace.rejectedBy).toBe('riskReward');
-    expect(trace.reason).toMatch(/Poor risk\/reward/);
+    // A judgment stage objects but does not remove the name — the analyst
+    // sees the candidate and the concern, and decides.
+    expect(trace.rejectedBy).toBeNull();
+    expect(trace.tier).toBe('WATCHLIST');
+    expect(trace.concerns.map((c) => c.stage)).toContain('riskReward');
+    expect(trace.concerns.find((c) => c.stage === 'riskReward')!.reason).toMatch(/Poor risk\/reward/);
   });
 });
 
@@ -183,8 +187,8 @@ describe('Part 19 — extension', () => {
       technical: technical({ atrPercent: 2.0, return4Session: 20 }),
     }), ctx);
 
-    expect(trace.rejectedBy).toBe('extension');
-    expect(trace.reason).toMatch(/Too extended to chase/);
+    expect(trace.rejectedBy).toBeNull();
+    expect(trace.concerns.find((c) => c.stage === 'extension')!.reason).toMatch(/Too extended to chase/);
   });
 
   it('clears a move in line with its own ATR', () => {

@@ -158,7 +158,7 @@ export class CandidateScannerService {
         const candidate: StockCandidateData = {
           quote, sectorName, turnoverCr, technical, relativeStrength, fno, news, candidateBias,
           filters: {
-            symbol, tier: 'REJECTED', stages: [], rejectedBy: null, reason: null, volumeCharacter: null,
+            symbol, tier: 'REJECTED', stages: [], rejectedBy: null, reason: null, concerns: [], volumeCharacter: null,
           },
         };
 

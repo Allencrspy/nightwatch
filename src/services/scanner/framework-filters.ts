@@ -40,6 +40,19 @@ export type StageName =
   | 'riskReward'
   | 'extension';
 
+/**
+ * Only Part 2 removes a name from consideration. The framework calls that an
+ * identification screen — a stock moving under 1.5% on below-average volume
+ * is not a candidate for investigation in the first place.
+ *
+ * Every later stage is judgment, and judgment belongs to the analyst. Those
+ * stages still run and still record what a mechanical reading concludes, but
+ * a negative verdict demotes rather than removes, so the analyst sees the
+ * name, sees the concern, and decides. Letting them reject outright is how a
+ * fixed threshold silently overrules a month of working judgment.
+ */
+export const SCREENING_STAGES: readonly StageName[] = ['priceMovement', 'volume'] as const;
+
 /** Framework order. Changing this changes the order of analysis. */
 export const STAGE_ORDER: readonly StageName[] = [
   'priceMovement',
@@ -98,6 +111,8 @@ export interface FilterTrace {
   stages: StageResult[];
   rejectedBy: StageName | null;
   reason: string | null;
+  /** Judgment stages that objected but did not remove the name. */
+  concerns: Array<{ stage: StageName; part: string; reason: string }>;
   /** What the volume actually accompanied — Part 2 insists this is answered. */
   volumeCharacter: string | null;
 }
@@ -470,6 +485,7 @@ export function runFramework(candidate: StockCandidateData, ctx: StageContext): 
     stages: [],
     rejectedBy: null,
     reason: null,
+    concerns: [],
     volumeCharacter: null,
   };
 
@@ -488,10 +504,18 @@ export function runFramework(candidate: StockCandidateData, ctx: StageContext): 
     }
 
     if (verdict.outcome === 'REJECT') {
-      trace.tier = 'REJECTED';
-      trace.rejectedBy = stage;
-      trace.reason = verdict.reason;
-      return trace;
+      if (SCREENING_STAGES.includes(stage)) {
+        // A screen genuinely removes the name; nothing further is evaluated.
+        trace.tier = 'REJECTED';
+        trace.rejectedBy = stage;
+        trace.reason = verdict.reason;
+        return trace;
+      }
+      // A judgment stage records its objection and carries on, so the analyst
+      // receives both the candidate and the reason to be wary of it.
+      trace.tier = 'WATCHLIST';
+      trace.concerns.push({ stage, part: STAGE_PART[stage], reason: verdict.reason });
+      continue;
     }
     if (verdict.outcome === 'DEMOTE') trace.tier = 'WATCHLIST';
   }
