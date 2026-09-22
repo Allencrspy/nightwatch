@@ -11,7 +11,8 @@
     "verify:feed": "tsx scripts/verify-feed.ts",
     "typecheck": "tsc --noEmit",
     "web": "vite",
-    "web:build": "vite build"
+    "web:build": "vite build",
+    "check:universe": "tsx scripts/check-universe.ts"
   },
   "keywords": [
     "trading",

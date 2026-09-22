@@ -192,7 +192,16 @@ export class TechnicalIndicatorService {
   /**
    * Analyze all technical metrics from daily candles
    */
-  public static analyze(candles: Candle[]): TechnicalMetrics {
+  /**
+   * `known` lets the caller pass figures Dhan states directly. Its quote
+   * carries a true 52-week range, which beats deriving one from 200 candles —
+   * that window is only ~10 months, so a derived "52-week high" was routinely
+   * too low and made the room-to-move stage overstate the available room.
+   */
+  public static analyze(
+    candles: Candle[],
+    known: { week52High?: number | null; week52Low?: number | null } = {}
+  ): TechnicalMetrics {
     const prices = candles.map((c) => c.close);
     const volumes = candles.map((c) => c.volume);
     const lastCandle = candles[candles.length - 1];
@@ -230,7 +239,12 @@ export class TechnicalIndicatorService {
     }
 
     const atr14 = this.calculateATR(candles, 14);
-    const { high52w, low52w, yearWindowIncomplete } = this.calculateYearRange(candles);
+    const derived = this.calculateYearRange(candles);
+    const high52w = known.week52High ?? derived.high52w;
+    const low52w = known.week52Low ?? derived.low52w;
+    // Only "incomplete" when the figures had to be derived from short history.
+    const yearWindowIncomplete =
+      known.week52High == null || known.week52Low == null ? derived.yearWindowIncomplete : false;
 
     return {
       ema20,

@@ -10,11 +10,11 @@ export const SECTOR_MAPPINGS: SectorMapping[] = [
   },
   {
     sector: 'NIFTY IT',
-    symbols: ['TCS', 'INFY', 'WIPRO', 'HCLTECH', 'TECHM', 'LTIM', 'PERSISTENT', 'COFORGE', 'MPHASIS'],
+    symbols: ['TCS', 'INFY', 'WIPRO', 'HCLTECH', 'TECHM', 'LTTS', 'PERSISTENT', 'COFORGE', 'MPHASIS'],
   },
   {
     sector: 'NIFTY AUTO',
-    symbols: ['TATAMOTORS', 'MARUTI', 'M&M', 'BAJAJ-AUTO', 'HEROMOTOCO', 'EICHERMOT', 'TVSMOTOR', 'BHARATFORG'],
+    symbols: ['TMPV', 'TMCV', 'MARUTI', 'M&M', 'BAJAJ-AUTO', 'HEROMOTOCO', 'EICHERMOT', 'TVSMOTOR', 'BHARATFORG'],
   },
   {
     sector: 'NIFTY FMCG',
@@ -34,16 +34,22 @@ export const SECTOR_MAPPINGS: SectorMapping[] = [
   },
 ];
 
+/**
+ * Symbols change with corporate actions — TATAMOTORS demerged into TMPV and
+ * TMCV, OBEROIRAL was renamed OBEROIRLTY. Run `npm run check:universe` after
+ * any corporate action to catch stale entries against Dhan's live scrip
+ * master rather than discovering them mid-scan.
+ */
 export const FNO_STOCK_UNIVERSE = [
   'RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'SBIN', 'AXISBANK', 'KOTAKBANK',
-  'LT', 'BHARTIARTL', 'ITC', 'HINDUNILVR', 'BAJFINANCE', 'TATASTEEL', 'TATAMOTORS', 'MARUTI',
+  'LT', 'BHARTIARTL', 'ITC', 'HINDUNILVR', 'BAJFINANCE', 'TATASTEEL', 'TMPV', 'TMCV', 'MARUTI',
   'SUNPHARMA', 'CIPLA', 'DRREDDY', 'NTPC', 'POWERGRID', 'M&M', 'TITAN', 'ULTRACEMCO',
-  'ADANIENT', 'ADANIPORTS', 'JINDALSTEL', 'HINDALCO', 'WIPRO', 'HCLTECH', 'TECHM', 'LTIM',
+  'ADANIENT', 'ADANIPORTS', 'JINDALSTEL', 'HINDALCO', 'WIPRO', 'HCLTECH', 'TECHM', 'LTTS',
   'BAJAJ-AUTO', 'HEROMOTOCO', 'EICHERMOT', 'TVSMOTOR', 'NESTLEIND', 'BRITANNIA', 'DABUR',
   'GODREJCP', 'DIVISLAB', 'LUPIN', 'APOLLOHOSP', 'TORNTPHARM', 'JSWSTEEL', 'SAIL', 'VEDL',
   'ONGC', 'BPCL', 'IOC', 'GAIL', 'TATAPOWER', 'COALINDIA', 'BANKBARODA', 'PNB', 'FEDERALBNK',
   'IDFCFIRSTB', 'INDUSINDBK', 'PERSISTENT', 'COFORGE', 'MPHASIS', 'BHARATFORG', 'TATACONSUM',
-  'COLPAL', 'VBL', 'BIOCON', 'MANKIND', 'NMDC', 'NATIONALUM', 'DLF', 'GODREJPROP', 'OBEROIRAL',
+  'COLPAL', 'VBL', 'BIOCON', 'MANKIND', 'NMDC', 'NATIONALUM', 'DLF', 'GODREJPROP', 'OBEROIRLTY',
   'TRENT', 'BEL', 'HAL', 'RECLTD', 'PFC', 'CHOLAFIN', 'SHRIRAMFIN', 'MUTHOOTFIN', 'BAJAJFINSV'
 ];
 

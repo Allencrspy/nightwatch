@@ -4,6 +4,7 @@ import { logger } from '../../utils/logger.js';
 import { DataUnavailableError, UpstreamError } from '../../utils/errors.js';
 import { InstrumentMaster } from './instrument-master.js';
 import { INDEX_SECURITY_IDS } from '../../config/constants.js';
+import { DhanRateLimiter, type RateCategory } from './rate-limiter.js';
 
 export interface Candle {
   timestamp: string;
@@ -26,16 +27,50 @@ export interface MarketQuote {
   lastPrice: number;
   open: number;
   high: number;
+  /** Today's close. Dhan's ohlc.close equals last_price, not the prior day. */
   low: number;
   close: number;
-  previousClose: number;
-  change: number;
-  changePercent: number;
+  /**
+   * Dhan's quote carries no previous close and reports net_change as 0, so
+   * the day's move cannot be derived from this endpoint alone. Both stay null
+   * here and are filled from the daily history by the caller. Reading
+   * ohlc.close as "previous close" made every symbol move exactly 0.00%.
+   */
+  previousClose: number | null;
+  change: number | null;
+  changePercent: number | null;
   volume: number;
-  /** Derivatives-only. Null for cash equity requests. */
+  /** Dhan's own 52-week range, more authoritative than 200 candles of history. */
+  week52High: number | null;
+  week52Low: number | null;
+  /** Dhan's average_price: the session VWAP. */
+  averagePrice: number | null;
   openInterest: number | null;
   oiChangePercent: number | null;
   unavailable: string[];
+}
+
+/** A quote whose day's move has been resolved from history. */
+export type QuoteWithChange = MarketQuote & {
+  previousClose: number;
+  change: number;
+  changePercent: number;
+};
+
+/** Fills previousClose/change on a quote using the daily history. */
+export function withChangeFromHistory(quote: MarketQuote, history: Candle[]): MarketQuote {
+  const prior = [...history].reverse().find((c) => c.close !== quote.lastPrice && Number.isFinite(c.close));
+  const previousClose = prior?.close ?? null;
+  if (previousClose == null || previousClose === 0) return quote;
+
+  const change = Number((quote.lastPrice - previousClose).toFixed(2));
+  return {
+    ...quote,
+    previousClose,
+    change,
+    changePercent: Number(((change / previousClose) * 100).toFixed(2)),
+    unavailable: quote.unavailable.filter((f) => !['previousClose', 'change', 'changePercent'].includes(f)),
+  };
 }
 
 const SEGMENT_NSE_EQ = 'NSE_EQ';
@@ -87,12 +122,37 @@ export class DhanMarketDataService {
     const data = await this.post('/charts/historical', payload, symbol);
     const candles = this.parseCandles(data, symbol);
 
-    if (candles.length < 50) {
+    // The floor is "enough for what was asked", not a flat 50. A caller
+    // requesting a short window (a spot check, a single recent candle) must
+    // not be failed for not receiving 50 it never wanted; a caller asking for
+    // a full history still needs 50 for EMA50 and the swing levels.
+    const minNeeded = Math.min(days, 50);
+    if (candles.length < minNeeded) {
       throw new DataUnavailableError(
-        `Dhan returned only ${candles.length} daily candles for ${symbol}; at least 50 are needed for EMA and swing levels.`
+        `Dhan returned only ${candles.length} daily candles for ${symbol}; ${minNeeded} are needed for this request.`
       );
     }
     return candles.slice(-days);
+  }
+
+  /** Daily candles for an index, which lives in the IDX_I segment. */
+  public async getIndexCandles(indexName: string, days = 30): Promise<Candle[]> {
+    const securityId = INDEX_SECURITY_IDS[indexName];
+    if (!securityId) throw new DataUnavailableError(`No securityId configured for index "${indexName}".`);
+
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - Math.ceil(days * 1.6));
+
+    const data = await this.post('/charts/historical', {
+      securityId,
+      exchangeSegment: 'IDX_I',
+      instrument: 'INDEX',
+      fromDate: toIsoDate(from),
+      toDate: toIsoDate(to),
+    }, indexName);
+
+    return this.parseCandles(data, indexName);
   }
 
   /**
@@ -134,11 +194,28 @@ export class DhanMarketDataService {
 
   /** Live quote for one or more NSE equity symbols. */
   public async getMarketQuotes(symbols: string[]): Promise<Map<string, MarketQuote>> {
+    // One unresolvable ticker must not abort the batch. Symbols go stale with
+    // corporate actions, and losing the whole universe because a single name
+    // was renamed is a worse failure than proceeding without it — the caller
+    // sees which symbols are missing from the returned map.
     const ids = new Map<string, string>();
-    for (const s of symbols) ids.set(s.toUpperCase(), await InstrumentMaster.securityId(s));
+    const unresolved: string[] = [];
+    for (const sym of symbols) {
+      try {
+        ids.set(sym.toUpperCase(), await InstrumentMaster.securityId(sym));
+      } catch {
+        unresolved.push(sym);
+      }
+    }
+    if (unresolved.length) {
+      logger.warn({ unresolved }, 'Symbols absent from the scrip master; excluded from this quote batch');
+    }
+    if (ids.size === 0) {
+      throw new DataUnavailableError(`None of the ${symbols.length} requested symbols resolved to a securityId.`);
+    }
 
     const payload = { [SEGMENT_NSE_EQ]: [...ids.values()].map((v) => Number(v)) };
-    const data = await this.post('/marketfeed/quote', payload, symbols.join(','));
+    const data = await this.post('/marketfeed/quote', payload, `${symbols.length} symbols`, 'quote');
 
     const bySecurityId: Record<string, any> = data?.[SEGMENT_NSE_EQ] ?? data?.data?.[SEGMENT_NSE_EQ] ?? {};
     const out = new Map<string, MarketQuote>();
@@ -151,36 +228,41 @@ export class DhanMarketDataService {
       }
 
       const ohlc = row.ohlc ?? row;
-      const lastPrice = Number(row.last_price ?? row.lastPrice ?? row.ltp);
-      const previousClose = Number(ohlc.close ?? row.close ?? row.prev_close);
-      const open = Number(ohlc.open ?? row.open);
-      const high = Number(ohlc.high ?? row.high);
-      const low = Number(ohlc.low ?? row.low);
-      const volume = Number(row.volume ?? row.total_traded_quantity ?? row.totalTradedQuantity ?? 0);
+      const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : null);
 
-      if (!Number.isFinite(lastPrice) || !Number.isFinite(previousClose) || previousClose === 0) {
+      const lastPrice = num(row.last_price ?? row.lastPrice ?? row.ltp);
+      if (lastPrice === null || lastPrice <= 0) {
         logger.warn({ symbol }, 'Dhan quote lacked a usable price; skipping rather than substituting');
         continue;
       }
 
-      const change = Number((lastPrice - previousClose).toFixed(2));
+      const oi = num(row.oi);
 
       out.set(symbol, {
         symbol,
         securityId,
         lastPrice,
-        open,
-        high,
-        low,
+        open: num(ohlc.open) ?? lastPrice,
+        high: num(ohlc.high) ?? lastPrice,
+        low: num(ohlc.low) ?? lastPrice,
         close: lastPrice,
-        previousClose,
-        change,
-        changePercent: Number(((change / previousClose) * 100).toFixed(2)),
-        volume,
-        // Cash-equity quotes carry no open interest. Saying so beats inventing it.
-        openInterest: null,
+        // Not in this response — filled from the daily history downstream.
+        previousClose: null,
+        change: null,
+        changePercent: null,
+        volume: num(row.volume) ?? 0,
+        week52High: num(row['52_week_high']),
+        week52Low: num(row['52_week_low']),
+        averagePrice: num(row.average_price),
+        // Cash equity reports oi as 0, which means "not applicable", not zero
+        // open interest. Treated as unknown rather than a real reading.
+        openInterest: oi && oi > 0 ? oi : null,
         oiChangePercent: null,
-        unavailable: ['openInterest', 'oiChangePercent'],
+        unavailable: [
+          'previousClose', 'change', 'changePercent',
+          ...(oi && oi > 0 ? [] : ['openInterest']),
+          'oiChangePercent',
+        ],
       });
     }
 
@@ -210,34 +292,35 @@ export class DhanMarketDataService {
       );
     }
 
-    const data = await this.post('/marketfeed/quote', { IDX_I: [Number(securityId)] }, indexName);
+    const data = await this.post('/marketfeed/quote', { IDX_I: [Number(securityId)] }, indexName, 'quote');
     const rows: Record<string, any> = data?.IDX_I ?? data?.data?.IDX_I ?? {};
     const row = rows[securityId] ?? rows[String(Number(securityId))];
     if (!row) throw new DataUnavailableError(`Dhan returned no quote for index ${indexName}.`);
 
     const ohlc = row.ohlc ?? row;
     const lastPrice = Number(row.last_price ?? row.lastPrice ?? row.ltp);
-    const previousClose = Number(ohlc.close ?? row.close);
-    if (!Number.isFinite(lastPrice) || !Number.isFinite(previousClose) || previousClose === 0) {
+    if (!Number.isFinite(lastPrice) || lastPrice <= 0) {
       throw new DataUnavailableError(`Index quote for ${indexName} lacked a usable price.`);
     }
 
-    const change = Number((lastPrice - previousClose).toFixed(2));
     return {
       symbol: indexName,
       securityId,
       lastPrice,
-      open: Number(ohlc.open ?? row.open),
-      high: Number(ohlc.high ?? row.high),
-      low: Number(ohlc.low ?? row.low),
+      open: Number(ohlc.open ?? row.open) || lastPrice,
+      high: Number(ohlc.high ?? row.high) || lastPrice,
+      low: Number(ohlc.low ?? row.low) || lastPrice,
       close: lastPrice,
-      previousClose,
-      change,
-      changePercent: Number(((change / previousClose) * 100).toFixed(2)),
+      previousClose: null,
+      change: null,
+      changePercent: null,
       volume: 0,
+      week52High: Number(row['52_week_high']) || null,
+      week52Low: Number(row['52_week_low']) || null,
+      averagePrice: Number(row.average_price) || null,
       openInterest: null,
       oiChangePercent: null,
-      unavailable: ['volume', 'openInterest', 'oiChangePercent'],
+      unavailable: ['previousClose', 'change', 'changePercent', 'volume', 'openInterest', 'oiChangePercent'],
     };
   }
 
@@ -266,39 +349,72 @@ export class DhanMarketDataService {
 
   // --- internals ---
 
-  private async post(pathname: string, payload: unknown, context: string): Promise<any> {
+  /**
+   * Dhan reports the same condition in more than one shape depending on the
+   * endpoint: charts return {errorType, errorCode, errorMessage}, while
+   * marketfeed returns {data: {"806": "Data APIs not Subscribed"}}. Reading
+   * only the first meant a missing subscription on marketfeed fell through to
+   * the generic 401 branch and was reported as a dead session — sending the
+   * user to log in again over something logging in cannot fix.
+   */
+  private describeDhanError(detail: any): { code: string | null; message: string | null } {
+    if (!detail || typeof detail !== 'object') {
+      return { code: null, message: typeof detail === 'string' ? detail : null };
+    }
+    if (detail.errorCode || detail.errorMessage) {
+      return { code: detail.errorCode ?? null, message: detail.errorMessage ?? null };
+    }
+    // {"data": {"<code>": "<message>"}, "status": "failed"}
+    if (detail.data && typeof detail.data === 'object') {
+      const [code, message] = Object.entries(detail.data)[0] ?? [];
+      if (code) return { code: String(code), message: String(message) };
+    }
+    return { code: null, message: null };
+  }
+
+  private async post(
+    pathname: string,
+    payload: unknown,
+    context: string,
+    category: RateCategory = 'data'
+  ): Promise<any> {
     try {
-      const res = await this.http.post(pathname, payload);
-      return res.data;
+      return await DhanRateLimiter.schedule(category, async () => {
+        const res = await this.http.post(pathname, payload);
+        return res.data;
+      });
     } catch (err: any) {
       const status = err.response?.status;
       const detail = err.response?.data ?? err.message;
-      logger.error({ pathname, context, status, detail }, 'Dhan request failed');
+      const { code, message } = this.describeDhanError(detail);
+      logger.error({ pathname, context, status, code, message, detail }, 'Dhan request failed');
 
-      // Dhan returns structured errors; the code says far more than the status.
-      // DH-902 in particular arrives as a 401 but is an entitlement problem,
-      // not an expired session — telling the user to log in again sends them
-      // round a loop that cannot fix it.
-      const dhanCode = detail?.errorCode;
-      const dhanMessage = detail?.errorMessage;
-
-      if (dhanCode === 'DH-902' || /not subscribed to Data APIs/i.test(String(dhanMessage))) {
+      // Not subscribed. DH-902 on charts, 806 on marketfeed — same problem.
+      if (code === 'DH-902' || code === '806' || /not subscribed to data apis/i.test(String(message))) {
         throw new UpstreamError(
           'Dhan',
           'this account has no Data APIs subscription. Login worked, but market data is a paid add-on — subscribe on the Dhan platform, then retry.',
           detail
         );
       }
-      if (status === 401 || status === 403) {
+
+      if (status === 429 || code === '805') {
+        await DhanRateLimiter.penalise(category);
         throw new UpstreamError(
           'Dhan',
-          dhanMessage ? `access refused — ${dhanMessage}` : 'the session was rejected. Log in again.',
+          `rate limit hit on ${pathname}. Dhan allows 1 quote and 5 data requests per second; the scan is being throttled to stay inside that.`,
           detail
         );
       }
-      if (status === 429) {
-        throw new UpstreamError('Dhan', 'rate limit hit. Slow the scan down or reduce the universe.', detail);
+
+      if (status === 401 || status === 403) {
+        throw new UpstreamError(
+          'Dhan',
+          message ? `access refused — ${message}` : 'the session was rejected. Log in again.',
+          detail
+        );
       }
+
       throw new UpstreamError('Dhan', `request to ${pathname} failed for ${context}`, detail);
     }
   }

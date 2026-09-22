@@ -37,7 +37,7 @@ async function main() {
 
   const market = new DhanMarketDataService(token, clientId);
 
-  const candles = await market.getDailyCandles(symbol, 5);
+  const candles = await market.getDailyCandles(symbol, 60);
   const last = candles[candles.length - 1];
   console.log(`${symbol} latest daily candle from Dhan:`);
   console.log(`  date   ${last.timestamp}`);
