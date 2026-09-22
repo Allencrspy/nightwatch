@@ -26,7 +26,7 @@ export interface SessionStatus {
 }
 
 interface PendingLogin {
-  state: string;
+  consentAppId: string;
   createdAt: number;
   redirectUri: string;
 }
@@ -51,22 +51,35 @@ export class SessionStore {
     return SessionStore.instance;
   }
 
-  // --- pending logins (CSRF protection for the consent round trip) ---
+  // --- pending logins ---
+  //
+  // Dhan's redirect carries only ?tokenId=; it does not echo a state
+  // parameter, so the usual state round trip is not available. Instead a
+  // callback is only honoured when this server recently started a login and
+  // that login has not yet been consumed. That binds the callback to a flow
+  // we began, and makes each one single-use, which is what is achievable
+  // within the documented redirect.
 
-  public createPending(redirectUri: string): string {
+  public createPending(consentAppId: string, redirectUri: string): void {
     this.prunePending();
-    const state = crypto.randomBytes(32).toString('base64url');
-    this.pending.set(state, { state, createdAt: Date.now(), redirectUri });
-    return state;
+    this.pending.set(consentAppId, { consentAppId, createdAt: Date.now(), redirectUri });
   }
 
-  /** Single use: a state that has been consumed cannot be replayed. */
-  public consumePending(state: string): PendingLogin | null {
+  /** Consumes the most recent unconsumed login, or null when there is none. */
+  public consumeMostRecentPending(): PendingLogin | null {
     this.prunePending();
-    const found = this.pending.get(state);
-    if (!found) return null;
-    this.pending.delete(state);
-    return found;
+    let newest: PendingLogin | null = null;
+    for (const p of this.pending.values()) {
+      if (!newest || p.createdAt > newest.createdAt) newest = p;
+    }
+    if (!newest) return null;
+    this.pending.delete(newest.consentAppId);
+    return newest;
+  }
+
+  public pendingCount(): number {
+    this.prunePending();
+    return this.pending.size;
   }
 
   private prunePending(): void {

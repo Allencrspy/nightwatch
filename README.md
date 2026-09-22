@@ -44,17 +44,28 @@ because the Dhan login popup hands the session back via `postMessage`, and a
 
 Access is granted when you log in — no token is ever read from config.
 
-**Primary route.** Register an app in Dhan's developer console, set
-`DHAN_PARTNER_ID` and `DHAN_PARTNER_SECRET` in `.env`, and register
-`http://localhost:3000/auth/dhan/callback` as the redirect URL. You then log
-in on Dhan's own domain; the server exchanges the result for an access token
-and encrypts it immediately. Without those two values `/auth/dhan/login`
-returns 503 and the dashboard says so.
+**Primary route — browser login.** Every Dhan account can do this; it is not
+a partner programme. At web.dhan.co go to *My Profile → Access DhanHQ APIs*,
+toggle to **API key**, enter an app name, and set the Redirect URL to
+`http://localhost:3000/auth/dhan/callback` exactly. Put the key, secret and
+your client id in `.env` as `DHAN_API_KEY`, `DHAN_API_SECRET` and
+`DHAN_CLIENT_ID`.
 
-**Fallback route.** If Dhan does not grant partner access to your account,
-paste a token generated in their console into the Connect screen. It is
+Pressing **Log in with Dhan** then opens Dhan's own login page in a popup,
+where you authenticate however you prefer — **QR scan**, PIN or OTP. None of
+that is handled here: it is Dhan's page, and your credentials never reach
+this app. Dhan redirects back with a `tokenId`, the server exchanges it for a
+24-hour access token, and encrypts it immediately.
+
+Without those three values `/auth/dhan/login` returns 503 and the dashboard
+says exactly what is missing.
+
+**Fallback route.** You can also generate a 24-hour access token directly at
+*My Profile → Access DhanHQ APIs* and paste it into the Connect screen. It is
 verified against Dhan before any session is created, then encrypted. Same
 session plumbing, different front door.
+
+Tokens last 24 hours either way, so expect to log in once a day.
 
 Either way your browser holds only an opaque session id, sent as a bearer
 token. The access token stays encrypted server-side.

@@ -1883,19 +1883,24 @@ function viewConnect(){
           <div class="card-head"><span class="card-title">Log in with Dhan</span>
             ${methods.oauth ? `<span class="chip good" style="margin-left:auto">available</span>`
                             : `<span class="chip unk" style="margin-left:auto">not configured</span>`}</div>
-          <p class="muted">Opens Dhan's own login page in a popup. You enter your credentials on Dhan's domain — this app never sees them.</p>
+          <p class="muted">Opens Dhan's own login page in a popup, where you authenticate however you prefer —
+          <strong>scan the QR with the Dhan app</strong>, or use your PIN or an OTP. That page is Dhan's;
+          your credentials never reach this app.</p>
           ${methods.oauth
             ? `<button class="btn primary" id="auth-login" style="margin-top:14px" ${a.busy ? "disabled" : ""}>
                  ${a.busy ? `<span class="spin"></span> Waiting for Dhan…` : `<span class="glyph">→</span> Log in with Dhan`}</button>`
             : `<div class="banner warn" style="margin-top:14px"><span class="glyph">!</span>
-                <div>The server has no <span class="num">DHAN_PARTNER_ID</span> and <span class="num">DHAN_PARTNER_SECRET</span>.
-                Add them to <span class="num">.env</span> and restart, or use the token route.</div></div>`}
+                <div>The server needs <span class="num">DHAN_API_KEY</span>, <span class="num">DHAN_API_SECRET</span>
+                and <span class="num">DHAN_CLIENT_ID</span> in <span class="num">.env</span>. Generate them at
+                web.dhan.co under My Profile → Access DhanHQ APIs → API key, setting the redirect URL to
+                <span class="num">http://localhost:3000/auth/dhan/callback</span>, then restart the API.</div></div>`}
         </div>
 
         <div class="card">
           <div class="card-head"><span class="card-title">Paste an access token</span>
             <span class="chip unk" style="margin-left:auto">fallback</span></div>
-          <p class="muted">For accounts without partner access. Generate a token in Dhan's console and paste it here — it is checked against Dhan before any session is created, then encrypted.</p>
+          <p class="muted">Generate a 24-hour access token at web.dhan.co under My Profile → Access DhanHQ APIs
+          and paste it here. It is checked against Dhan before any session is created, then encrypted.</p>
           <div class="field" style="margin-top:14px">
             <label for="tok-client">Dhan client id</label>
             <input class="input" id="tok-client" spellcheck="false" autocomplete="off">
@@ -1912,8 +1917,8 @@ function viewConnect(){
       <div class="section-head"><h2>How access works</h2></div>
       <div class="card">
         <ul class="list">
-          <li>You log in on Dhan's own domain; your password never reaches this app or its server.</li>
-          <li>The server exchanges the result for an access token and encrypts it immediately.</li>
+          <li>You log in on Dhan's own page — QR scan, PIN or OTP; nothing you type reaches this app.</li>
+          <li>Dhan redirects back with a one-time tokenId; the server exchanges it for a 24-hour access token and encrypts it immediately.</li>
           <li>This browser stores only an opaque session id, sent as a bearer token on each request.</li>
           <li>Disconnecting destroys the session on the server.</li>
         </ul>

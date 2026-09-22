@@ -6,6 +6,11 @@ export const DhanCallbackQuerySchema = z.object({
   state: z.string().optional(),
 });
 
+export const DhanLoginQuerySchema = z.object({
+  /** Overrides DHAN_CLIENT_ID for this login. */
+  clientId: z.string().optional(),
+});
+
 export const DhanTokenLoginSchema = z.object({
   accessToken: z.string().min(20, 'That does not look like a Dhan access token.'),
   dhanClientId: z.string().min(1, 'A Dhan client id is required.'),

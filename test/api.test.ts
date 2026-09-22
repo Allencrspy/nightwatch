@@ -55,19 +55,19 @@ describe('API surface', () => {
     expect(res.json().error).toBe('NOT_CONFIGURED');
   });
 
-  it('rejects a callback with no state, without contacting Dhan', async () => {
-    const res = await app.inject({ method: 'GET', url: '/auth/dhan/callback?tokenId=abc' });
+  it('rejects a callback with no tokenId, without contacting Dhan', async () => {
+    const res = await app.inject({ method: 'GET', url: '/auth/dhan/callback' });
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatch(/Login failed/);
+    expect(res.body).toMatch(/did not return a tokenId/);
   });
 
-  it('rejects a callback whose state was never issued', async () => {
-    const res = await app.inject({
-      method: 'GET',
-      url: '/auth/dhan/callback?tokenId=abc&state=forged-state',
-    });
+  it('rejects a callback when no login is pending on this server', async () => {
+    // Dhan's redirect carries only ?tokenId=, so a callback is honoured only
+    // when this server started a login that is still unconsumed. A forged one
+    // must not reach Dhan's token exchange.
+    const res = await app.inject({ method: 'GET', url: '/auth/dhan/callback?tokenId=forged' });
     expect(res.statusCode).toBe(401);
-    expect(res.body).toMatch(/Login state is unknown/);
+    expect(res.body).toMatch(/No login is pending/);
   });
 
   it('rejects an invalid analysis request body before touching Dhan', async () => {

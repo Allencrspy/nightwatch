@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { DhanAuthService } from '../services/auth/dhan-auth.service.js';
-import { DhanCallbackQuerySchema, DhanTokenLoginSchema } from '../schemas/auth.schema.js';
+import { DhanCallbackQuerySchema, DhanLoginQuerySchema, DhanTokenLoginSchema } from '../schemas/auth.schema.js';
 import { DhanMarketDataService } from '../services/dhan/dhan-market-data.service.js';
 import { readSessionId, requireSession } from '../plugins/require-session.js';
 import { env, isDhanOAuthConfigured } from '../config/env.js';
@@ -37,13 +37,35 @@ function callbackPage(payload: Record<string, unknown>): string {
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
   const auth = DhanAuthService.getInstance();
 
-  /** Start a login. Returns the Dhan URL the dashboard should open in a popup. */
-  fastify.get('/auth/dhan/login', async (_request, reply) => {
+  /**
+   * Start a login. Returns the Dhan URL the dashboard opens in a popup, where
+   * the user authenticates however they like — QR scan, PIN or OTP.
+   */
+  fastify.get('/auth/dhan/login', async (request, reply) => {
+    const { clientId } = DhanLoginQuerySchema.parse(request.query);
+    const dhanClientId = clientId || env.DHAN_CLIENT_ID;
+
+    // Name everything that is missing, not just the first thing checked.
+    const missing = [
+      !env.DHAN_API_KEY && 'DHAN_API_KEY',
+      !env.DHAN_API_SECRET && 'DHAN_API_SECRET',
+      !dhanClientId && 'DHAN_CLIENT_ID',
+    ].filter(Boolean) as string[];
+    if (missing.length || !dhanClientId) {
+      throw new AppError(
+        503,
+        'NOT_CONFIGURED',
+        `Dhan browser login needs ${missing.join(', ')} in .env. Generate an API key at web.dhan.co ` +
+          `under My Profile > Access DhanHQ APIs, setting the redirect URL to ` +
+          `${env.APP_BASE_URL}/auth/dhan/callback, then restart the API.`
+      );
+    }
+
     const redirectUri = `${env.APP_BASE_URL}/auth/dhan/callback`;
-    const { loginUrl, state } = await auth.startLogin(redirectUri);
+    const { loginUrl, consentAppId } = await auth.startLogin(dhanClientId, redirectUri);
     return reply.send({
       success: true,
-      data: { loginUrl, state, redirectUri },
+      data: { loginUrl, consentAppId, redirectUri },
       message: 'Open loginUrl in a popup. The user authenticates on Dhan, never here.',
     });
   });
@@ -55,14 +77,15 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     reply.type('text/html; charset=utf-8');
 
-    if (!tokenId || !query.state) {
+    // Dhan's redirect carries only ?tokenId=; there is no state to echo back.
+    if (!tokenId) {
       return reply
         .status(400)
-        .send(callbackPage({ ok: false, error: 'Dhan did not return a tokenId and state.' }));
+        .send(callbackPage({ ok: false, error: 'Dhan did not return a tokenId.' }));
     }
 
     try {
-      const { sessionId, status } = await auth.completeLogin(tokenId, query.state);
+      const { sessionId, status } = await auth.completeLogin(tokenId);
       return reply.send(callbackPage({ ok: true, sessionId, status }));
     } catch (err: any) {
       const message = err instanceof AppError ? err.message : 'Could not complete the Dhan login.';
@@ -73,12 +96,13 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * Fallback front door for accounts without partner access.
+   * Second front door: a 24-hour access token generated directly at
+   * web.dhan.co (My Profile > Access DhanHQ APIs).
    *
-   * The user pastes a token they generated in Dhan's own console. It is
-   * verified against Dhan before any session exists, encrypted immediately,
-   * and never written to config, logged, or returned. Primary path remains
-   * the login flow above.
+   * Verified against Dhan before any session exists, encrypted immediately,
+   * and never written to config, logged, or returned. The browser login above
+   * is the primary route because it needs no copy-pasting and lets the user
+   * authenticate by QR.
    */
   fastify.post('/auth/dhan/token', async (request, reply) => {
     const { accessToken, dhanClientId } = DhanTokenLoginSchema.parse(request.body);

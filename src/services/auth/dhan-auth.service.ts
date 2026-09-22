@@ -5,7 +5,7 @@ import { logger } from '../../utils/logger.js';
 
 export interface StartedLogin {
   loginUrl: string;
-  state: string;
+  consentAppId: string;
 }
 
 export interface CompletedLogin {
@@ -28,20 +28,27 @@ export class DhanAuthService {
     return DhanAuthService.instance;
   }
 
-  /** Begins a login. The user completes it on Dhan's own domain. */
-  public async startLogin(redirectUri: string): Promise<StartedLogin> {
-    const { loginUrl, consentId } = await DhanOAuthClient.generateConsent();
-    const state = this.store.createPending(redirectUri);
-    logger.info({ consentId }, 'Started Dhan consent flow');
-    return { loginUrl: `${loginUrl}&state=${encodeURIComponent(state)}`, state };
+  /**
+   * Begins a login. The user completes it on Dhan's own page, authenticating
+   * however they prefer — QR scan, PIN or OTP. None of that is ours to handle.
+   */
+  public async startLogin(dhanClientId: string, redirectUri: string): Promise<StartedLogin> {
+    const { loginUrl, consentAppId } = await DhanOAuthClient.generateConsent(dhanClientId);
+    this.store.createPending(consentAppId, redirectUri);
+    logger.info({ consentAppId }, 'Started Dhan login');
+    return { loginUrl, consentAppId };
   }
 
-  /** Completes a login. Throws if `state` is unknown, replayed, or expired. */
-  public async completeLogin(tokenId: string, state: string): Promise<CompletedLogin> {
-    const pending = this.store.consumePending(state);
+  /**
+   * Completes a login. Dhan's redirect carries only a tokenId, so this is
+   * honoured only when a login started here is still pending — each one
+   * single-use and expiring after ten minutes.
+   */
+  public async completeLogin(tokenId: string): Promise<CompletedLogin> {
+    const pending = this.store.consumeMostRecentPending();
     if (!pending) {
       throw new NotAuthenticatedError(
-        'Login state is unknown, already used, or older than 10 minutes. Start the login again.'
+        'No login is pending on this server. Start the login from the dashboard and finish it within 10 minutes.'
       );
     }
 

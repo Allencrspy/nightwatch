@@ -20,9 +20,15 @@ const envSchema = z
     DHAN_API_BASE: z.string().url().default('https://api.dhan.co/v2'),
     /** Dhan auth host for the partner consent flow. */
     DHAN_AUTH_BASE: z.string().url().default('https://auth.dhan.co'),
-    /** App-level registration from Dhan's developer console. NOT a user token. */
-    DHAN_PARTNER_ID: z.string().optional(),
-    DHAN_PARTNER_SECRET: z.string().optional(),
+    /**
+     * Your own API key and secret from web.dhan.co -> My Profile ->
+     * Access DhanHQ APIs -> API key. Available to every Dhan account; this is
+     * not a partner programme. Valid 12 months. NOT an access token.
+     */
+    DHAN_API_KEY: z.string().optional(),
+    DHAN_API_SECRET: z.string().optional(),
+    /** Your Dhan client id. Required as a query param when starting a login. */
+    DHAN_CLIENT_ID: z.string().optional(),
     /** Symbol -> securityId mapping. */
     DHAN_INSTRUMENT_MASTER_URL: z
       .string()
@@ -62,5 +68,7 @@ if (!parsed.success) {
 
 export const env: Env = parsed.data;
 
-/** True when the server holds the app-level credentials the OAuth flow needs. */
-export const isDhanOAuthConfigured = Boolean(env.DHAN_PARTNER_ID && env.DHAN_PARTNER_SECRET);
+/** True when the server holds everything the browser login flow needs. */
+export const isDhanOAuthConfigured = Boolean(
+  env.DHAN_API_KEY && env.DHAN_API_SECRET && env.DHAN_CLIENT_ID
+);
