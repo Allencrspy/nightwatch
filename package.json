@@ -1,13 +1,15 @@
 {
-  "name": "dhan-trading-analysis-api",
+  "name": "nightwatch-api",
   "version": "1.0.0",
-  "description": "NSE Intraday Trading Analysis Backend API integrating Dhan API, deterministic technical engine, 100-pt scoring model, and OpenAI AI analyst",
+  "description": "NSE intraday analysis backend. Dhan OAuth login, real market data only, validated setup geometry.",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:feed": "tsx scripts/verify-feed.ts",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "trading",
@@ -18,7 +20,7 @@
     "ai-analyst",
     "fastify"
   ],
-  "author": "Deepmind Antigravity",
+  "author": "",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.7.9",

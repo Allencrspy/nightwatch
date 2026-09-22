@@ -8,9 +8,11 @@ export const DhanCallbackQuerySchema = z.object({
 
 export const DhanStatusResponseSchema = z.object({
   connected: z.boolean(),
-  clientId: z.string().optional(),
+  dhanClientId: z.string().optional(),
   connectedAt: z.string().optional(),
-  source: z.enum(['ENV', 'OAUTH_CONSENT', 'SANDBOX_MOCK']),
+  expiresAt: z.string().nullable().optional(),
+  expired: z.boolean().optional(),
+  oauthConfigured: z.boolean().optional(),
 });
 
 export type DhanCallbackQuery = z.infer<typeof DhanCallbackQuerySchema>;

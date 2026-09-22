@@ -4,58 +4,74 @@ import { IntradayAnalysisResponseSchema } from '../schemas/analysis-response.sch
 import { CandidateScannerService } from '../services/scanner/candidate-scanner.js';
 import { ScoringEngineService } from '../services/scoring/scoring-engine.js';
 import { AiAnalystService } from '../services/ai/ai-analyst.service.js';
+import { DhanMarketDataService } from '../services/dhan/dhan-market-data.service.js';
+import { DhanAuthService } from '../services/auth/dhan-auth.service.js';
+import { requireSession } from '../plugins/require-session.js';
+import { NotAuthenticatedError, AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
 export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
-  const scannerService = new CandidateScannerService();
-  const aiAnalystService = new AiAnalystService();
+  const aiAnalyst = new AiAnalystService();
+  const auth = DhanAuthService.getInstance();
 
-  fastify.post('/api/v1/intraday-analysis', async (request, reply) => {
-    try {
-      const body = IntradayAnalysisRequestSchema.parse(request.body || {});
-      const { capital, riskPercent, maxTrades } = body;
+  fastify.post(
+    '/api/v1/intraday-analysis',
+    { preHandler: requireSession },
+    async (request, reply) => {
+      const { capital, riskPercent, maxTrades } = IntradayAnalysisRequestSchema.parse(request.body || {});
 
-      logger.info({ capital, riskPercent, maxTrades }, 'Executing Intraday Stock Selection Analysis API');
+      const sessionId = request.sessionId as string;
+      const accessToken = auth.getAccessToken(sessionId);
+      const clientId = auth.getClientId(sessionId);
+      if (!accessToken || !clientId) throw new NotAuthenticatedError();
 
-      // 1. Scan NSE F&O Universe & calculate technicals
-      const scanResult = await scannerService.scanUniverse();
+      logger.info({ capital, riskPercent, maxTrades }, 'Running intraday analysis');
 
-      // Determine market bias
-      const niftyChange = scanResult.niftyQuote.changePercent;
-      const bankNiftyChange = scanResult.bankNiftyQuote.changePercent;
-      const marketBias = (niftyChange + bankNiftyChange) / 2 >= 0.5 ? 'BULLISH' : (niftyChange + bankNiftyChange) / 2 <= -0.5 ? 'BEARISH' : 'NEUTRAL';
+      // Session-scoped client: every Dhan call is made as the logged-in user.
+      const market = new DhanMarketDataService(accessToken, clientId);
+      const scanner = new CandidateScannerService(market);
 
-      // 2. Compute 100-point deterministic scores for candidates
-      const scoredCandidates = scanResult.candidates.map((candidate) => ({
+      const scan = await scanner.scanUniverse();
+
+      const marketBias =
+        (scan.niftyQuote.changePercent + scan.bankNiftyQuote.changePercent) / 2 >= 0.5
+          ? 'BULLISH'
+          : (scan.niftyQuote.changePercent + scan.bankNiftyQuote.changePercent) / 2 <= -0.5
+            ? 'BEARISH'
+            : 'NEUTRAL';
+
+      const scoredCandidates = scan.candidates.map((candidate) => ({
         candidate,
         scoreBreakdown: ScoringEngineService.calculateScore(candidate, marketBias),
       }));
 
-      // 3. AI / LLM Reasoning & setup synthesis
-      const responsePlan = await aiAnalystService.analyzeIntradaySetups(
+      const plan = await aiAnalyst.analyzeIntradaySetups({
         scoredCandidates,
-        niftyChange,
-        bankNiftyChange,
-        scanResult.sectorPerformances,
+        niftyLastPrice: scan.niftyQuote.lastPrice,
+        niftyChangePercent: scan.niftyQuote.changePercent,
+        bankNiftyLastPrice: scan.bankNiftyQuote.lastPrice,
+        bankNiftyChangePercent: scan.bankNiftyQuote.changePercent,
+        sectorPerformances: scan.sectorPerformances,
+        skipped: scan.skipped,
         capital,
         riskPercent,
-        maxTrades
-      );
-
-      // Validate output schema
-      const validated = IntradayAnalysisResponseSchema.parse(responsePlan);
-
-      return reply.send({
-        success: true,
-        data: validated,
+        maxTrades,
       });
-    } catch (err: any) {
-      logger.error({ error: err.message, stack: err.stack }, 'Failed to process intraday analysis request');
-      return reply.status(500).send({
-        success: false,
-        error: 'Failed to generate intraday trading analysis',
-        message: err.message,
-      });
+
+      // The schema enforces geometry, not just shape. A setup that fails here
+      // is a bug worth surfacing, not something to ship to the dashboard.
+      const parsed = IntradayAnalysisResponseSchema.safeParse(plan);
+      if (!parsed.success) {
+        logger.error({ issues: parsed.error.issues }, 'Generated plan failed its own invariants');
+        throw new AppError(
+          500,
+          'INVALID_PLAN',
+          'The generated plan failed validation and was withheld.',
+          parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+        );
+      }
+
+      return reply.send({ success: true, data: parsed.data });
     }
-  });
+  );
 };

@@ -2,15 +2,21 @@ import type { StockCandidateData } from '../scanner/candidate-scanner.js';
 import { SCORING_WEIGHTS } from '../../config/constants.js';
 
 export interface ScoreBreakdown {
-  priceStructure: number; // Max 20
-  volume: number;         // Max 20
+  priceStructure: number;   // Max 20
+  volume: number;           // Max 20
   relativeStrength: number; // Max 15
-  breakoutQuality: number; // Max 15
-  trend: number;          // Max 10
-  sector: number;         // Max 10
-  liquidity: number;      // Max 5
-  news: number;           // Max 5
-  totalScore: number;     // Max 100
+  breakoutQuality: number;  // Max 15
+  trend: number;            // Max 10
+  sector: number;           // Max 10
+  liquidity: number;        // Max 5
+  /** Null when no news source is configured — not a middling 3/5. */
+  news: number | null;      // Max 5
+  /** Sum of the factors that could actually be assessed. */
+  totalScore: number;
+  /** Denominator for totalScore. Below 100 when a factor was unassessable. */
+  assessableMax: number;
+  /** Names of factors excluded from the score for want of data. */
+  unknownFactors: string[];
 }
 
 export class ScoringEngineService {
@@ -86,16 +92,27 @@ export class ScoringEngineService {
 
     // 7. Liquidity (Max 5)
     let liquidity = 2;
-    if (quote.totalTradedValueCr >= 100) liquidity = 5;
-    else if (quote.totalTradedValueCr >= 50) liquidity = 4;
-    else if (quote.totalTradedValueCr >= 20) liquidity = 3;
+    if (candidate.turnoverCr >= 100) liquidity = 5;
+    else if (candidate.turnoverCr >= 50) liquidity = 4;
+    else if (candidate.turnoverCr >= 20) liquidity = 3;
     liquidity = Math.min(SCORING_WEIGHTS.liquidity, Math.max(0, liquidity));
 
-    // 8. News / Catalyst (Max 5)
-    const newsScore = news.score;
+    // 8. News / Catalyst (Max 5) — excluded entirely when unassessable.
+    const unknownFactors: string[] = [];
+    const newsScore = news.available ? news.score : null;
+    if (newsScore === null) unknownFactors.push('news');
+    if (!fno.available) unknownFactors.push('fnoPositioning');
 
-    const totalScore =
-      priceStructure + volume + rsScore + breakoutQuality + trend + sector + liquidity + newsScore;
+    let assessableMax = SCORING_WEIGHTS.priceStructure + SCORING_WEIGHTS.volume +
+      SCORING_WEIGHTS.relativeStrength + SCORING_WEIGHTS.breakoutQuality +
+      SCORING_WEIGHTS.trend + SCORING_WEIGHTS.sector + SCORING_WEIGHTS.liquidity +
+      SCORING_WEIGHTS.news;
+    if (newsScore === null) assessableMax -= SCORING_WEIGHTS.news;
+
+    const totalScore = Number(
+      (priceStructure + volume + rsScore + breakoutQuality + trend + sector + liquidity +
+        (newsScore ?? 0)).toFixed(2)
+    );
 
     return {
       priceStructure,
@@ -107,6 +124,8 @@ export class ScoringEngineService {
       liquidity,
       news: newsScore,
       totalScore,
+      assessableMax,
+      unknownFactors,
     };
   }
 }

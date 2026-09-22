@@ -7,22 +7,22 @@ describe('ScoringEngineService', () => {
     const candidate: StockCandidateData = {
       quote: {
         symbol: 'RELIANCE',
+        securityId: '2885',
         lastPrice: 3000,
         open: 2950,
         high: 3010,
         low: 2940,
         close: 3000,
+        previousClose: 2940,
         change: 60,
         changePercent: 2.04,
         volume: 2500000,
-        avgVolume20: 1000000,
-        rvol: 2.5,
-        openInterest: 1000000,
-        oiChange: 50000,
-        oiChangePercent: 5.0,
-        totalTradedValueCr: 750,
-        sectorName: 'NIFTY ENERGY',
+        openInterest: null,
+        oiChangePercent: null,
+        unavailable: ['openInterest', 'oiChangePercent'],
       },
+      sectorName: 'NIFTY ENERGY',
+      turnoverCr: 750,
       technical: {
         ema20: 2900,
         ema50: 2850,
@@ -45,26 +45,41 @@ describe('ScoringEngineService', () => {
         outperformingSector: true,
       },
       fno: {
-        positioning: 'LONG_BUILDUP',
-        interpretation: 'Strong long buildup',
-        isBullish: true,
+        positioning: 'UNKNOWN',
+        interpretation: 'Open interest unavailable for this instrument; positioning not assessed.',
+        available: false,
+        isBullish: false,
         isBearish: false,
-        oiChangePercent: 5.0,
-        openInterest: 1000000,
+        oiChangePercent: null,
+        openInterest: null,
       },
       news: {
-        hasNews: true,
-        sentiment: 'BULLISH',
-        score: 5,
+        available: false,
+        hasNews: false,
+        sentiment: 'UNKNOWN',
+        score: null,
+        note: 'No news source configured.',
       },
       candidateBias: 'LONG',
     };
 
     const score = ScoringEngineService.calculateScore(candidate, 'BULLISH');
-    expect(score.totalScore).toBeGreaterThanOrEqual(80);
+
     expect(score.volume).toBe(20);
     expect(score.breakoutQuality).toBe(15);
     expect(score.trend).toBe(10);
-    expect(score.totalScore).toBeLessThanOrEqual(100);
+
+    // An unassessable factor scores null and leaves the denominator, rather
+    // than quietly contributing a middling 3/5 as it used to.
+    expect(score.news).toBeNull();
+    expect(score.unknownFactors).toContain('news');
+    expect(score.unknownFactors).toContain('fnoPositioning');
+    expect(score.assessableMax).toBe(95);
+
+    // The total must equal the factors it is made of.
+    const sum = score.priceStructure + score.volume + score.relativeStrength +
+      score.breakoutQuality + score.trend + score.sector + score.liquidity + (score.news ?? 0);
+    expect(score.totalScore).toBeCloseTo(sum, 2);
+    expect(score.totalScore).toBeLessThanOrEqual(score.assessableMax);
   });
 });

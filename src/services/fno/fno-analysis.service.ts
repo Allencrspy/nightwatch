@@ -1,4 +1,5 @@
 export type FnOPositioningType =
+  | 'UNKNOWN'
   | 'LONG_BUILDUP'
   | 'SHORT_BUILDUP'
   | 'SHORT_COVERING'
@@ -8,10 +9,12 @@ export type FnOPositioningType =
 export interface FnoAnalysisResult {
   positioning: FnOPositioningType;
   interpretation: string;
+  /** False when open interest was not available at all. */
+  available: boolean;
   isBullish: boolean;
   isBearish: boolean;
-  oiChangePercent: number;
-  openInterest: number;
+  oiChangePercent: number | null;
+  openInterest: number | null;
 }
 
 export class FnoAnalysisService {
@@ -20,9 +23,23 @@ export class FnoAnalysisService {
    */
   public static analyze(
     priceChangePercent: number,
-    oiChangePercent: number,
-    openInterest: number
+    oiChangePercent: number | null,
+    openInterest: number | null
   ): FnoAnalysisResult {
+    // Cash-equity quotes carry no OI. Previously this received a number derived
+    // from a hash of the ticker and produced confident prose from it.
+    if (oiChangePercent === null || openInterest === null) {
+      return {
+        positioning: 'UNKNOWN',
+        interpretation: 'Open interest unavailable for this instrument; positioning not assessed.',
+        available: false,
+        isBullish: false,
+        isBearish: false,
+        oiChangePercent: null,
+        openInterest: null,
+      };
+    }
+
     const isPriceUp = priceChangePercent > 0.3;
     const isPriceDown = priceChangePercent < -0.3;
     const isOiUp = oiChangePercent > 1.0;
@@ -54,6 +71,7 @@ export class FnoAnalysisService {
     return {
       positioning,
       interpretation,
+      available: true,
       isBullish,
       isBearish,
       oiChangePercent,

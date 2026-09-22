@@ -47,6 +47,15 @@ export const FNO_STOCK_UNIVERSE = [
   'TRENT', 'BEL', 'HAL', 'RECLTD', 'PFC', 'CHOLAFIN', 'SHRIRAMFIN', 'MUTHOOTFIN', 'BAJAJFINSV'
 ];
 
+/**
+ * Dhan index securityIds live in the IDX_I segment, not NSE_EQ.
+ * VERIFY against the scrip master before trusting these two.
+ */
+export const INDEX_SECURITY_IDS: Record<string, string> = {
+  'NIFTY 50': '13',
+  'BANK NIFTY': '25',
+};
+
 export const SCORING_WEIGHTS = {
   priceStructure: 20,
   volume: 20,
@@ -61,6 +70,7 @@ export const SCORING_WEIGHTS = {
 export const SCANNER_THRESHOLDS = {
   minAbsPriceChangePercent: 1.5,
   minRvol: 1.5,
-  minAvgDailyVolume: 500000, // minimum volume
-  minLiquidityAmountInCr: 50, // minimum 50 Cr daily turnover
+  minAvgDailyVolume: 500_000,
+  /** Single source of truth for the liquidity gate. The scanner reads this. */
+  minLiquidityAmountInCr: 50,
 };
