@@ -275,8 +275,26 @@ export class DhanMarketDataService {
       const detail = err.response?.data ?? err.message;
       logger.error({ pathname, context, status, detail }, 'Dhan request failed');
 
+      // Dhan returns structured errors; the code says far more than the status.
+      // DH-902 in particular arrives as a 401 but is an entitlement problem,
+      // not an expired session — telling the user to log in again sends them
+      // round a loop that cannot fix it.
+      const dhanCode = detail?.errorCode;
+      const dhanMessage = detail?.errorMessage;
+
+      if (dhanCode === 'DH-902' || /not subscribed to Data APIs/i.test(String(dhanMessage))) {
+        throw new UpstreamError(
+          'Dhan',
+          'this account has no Data APIs subscription. Login worked, but market data is a paid add-on — subscribe on the Dhan platform, then retry.',
+          detail
+        );
+      }
       if (status === 401 || status === 403) {
-        throw new UpstreamError('Dhan', 'the session was rejected. Log in again.', detail);
+        throw new UpstreamError(
+          'Dhan',
+          dhanMessage ? `access refused — ${dhanMessage}` : 'the session was rejected. Log in again.',
+          detail
+        );
       }
       if (status === 429) {
         throw new UpstreamError('Dhan', 'rate limit hit. Slow the scan down or reduce the universe.', detail);
