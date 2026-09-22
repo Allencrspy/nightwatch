@@ -1,0 +1,39 @@
+{
+  "name": "dhan-trading-analysis-api",
+  "version": "1.0.0",
+  "description": "NSE Intraday Trading Analysis Backend API integrating Dhan API, deterministic technical engine, 100-pt scoring model, and OpenAI AI analyst",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "trading",
+    "nse",
+    "intraday",
+    "dhan",
+    "technical-analysis",
+    "ai-analyst",
+    "fastify"
+  ],
+  "author": "Deepmind Antigravity",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "fastify": "^4.28.1",
+    "@fastify/cors": "^8.5.0",
+    "openai": "^4.85.4",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.19",
+    "typescript": "^5.7.3",
+    "tsx": "^4.19.3",
+    "vitest": "^2.1.8"
+  }
+}

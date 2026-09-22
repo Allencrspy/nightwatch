@@ -1,0 +1,112 @@
+{
+  "info": {
+    "_postman_id": "dhan-intraday-analysis-api-collection",
+    "name": "Dhan NSE Intraday Trading Analysis API",
+    "description": "Postman Collection for Dhan Automated NSE Intraday Stock Selection & Analysis API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Returns server status and timestamp"
+      }
+    },
+    {
+      "name": "2. Dhan Auth - Get Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/dhan/status",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "dhan", "status"]
+        },
+        "description": "Check whether server has an active encrypted Dhan access token"
+      }
+    },
+    {
+      "name": "3. Dhan Auth - Get Consent Login URL",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/dhan/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "dhan", "login"]
+        },
+        "description": "Generates Dhan OAuth consent URL for user login"
+      }
+    },
+    {
+      "name": "4. Dhan Auth - Callback Exchange",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/dhan/callback?tokenId=test_token_12345",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "dhan", "callback"],
+          "query": [
+            {
+              "key": "tokenId",
+              "value": "test_token_12345",
+              "description": "Consent token received from Dhan"
+            }
+          ]
+        },
+        "description": "Exchanges consent token for access token and encrypts it server-side"
+      }
+    },
+    {
+      "name": "5. Dhan Auth - Disconnect",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/dhan/disconnect",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "dhan", "disconnect"]
+        },
+        "description": "Clears stored active Dhan session"
+      }
+    },
+    {
+      "name": "6. Run Intraday Stock Selection Analysis",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"capital\": 500000,\n  \"riskPercent\": 0.5,\n  \"maxTrades\": 3\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/intraday-analysis",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "intraday-analysis"]
+        },
+        "description": "Runs deterministic scan, 100-pt scoring model, and AI analyst reasoning layer to output structured intraday setups"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}
