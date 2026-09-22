@@ -6,3 +6,4 @@ dist/
 .DS_Store
 coverage/
 .sessions.json
+.sessions.test.json
