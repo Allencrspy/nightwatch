@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { DhanAuthService } from '../services/auth/dhan-auth.service.js';
-import { DhanCallbackQuerySchema } from '../schemas/auth.schema.js';
+import { DhanCallbackQuerySchema, DhanTokenLoginSchema } from '../schemas/auth.schema.js';
+import { DhanMarketDataService } from '../services/dhan/dhan-market-data.service.js';
 import { readSessionId, requireSession } from '../plugins/require-session.js';
 import { env, isDhanOAuthConfigured } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
@@ -71,6 +72,27 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  /**
+   * Fallback front door for accounts without partner access.
+   *
+   * The user pastes a token they generated in Dhan's own console. It is
+   * verified against Dhan before any session exists, encrypted immediately,
+   * and never written to config, logged, or returned. Primary path remains
+   * the login flow above.
+   */
+  fastify.post('/auth/dhan/token', async (request, reply) => {
+    const { accessToken, dhanClientId } = DhanTokenLoginSchema.parse(request.body);
+
+    const market = new DhanMarketDataService(accessToken, dhanClientId);
+    const check = await market.verifyCredentials();
+    if (!check.ok) {
+      throw new AppError(401, 'CREDENTIALS_REJECTED', check.reason);
+    }
+
+    const { sessionId, status } = auth.createSessionFromToken(accessToken, dhanClientId);
+    return reply.send({ success: true, data: { sessionId, status } });
+  });
+
   /** Connection status. Safe to call without a session — reports connected:false. */
   fastify.get('/auth/dhan/status', async (request, reply) => {
     return reply.send({
@@ -78,6 +100,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       data: {
         ...auth.getStatus(readSessionId(request)),
         oauthConfigured: isDhanOAuthConfigured,
+        // Which front doors this server can actually offer right now.
+        methods: { oauth: isDhanOAuthConfigured, token: true },
       },
     });
   });

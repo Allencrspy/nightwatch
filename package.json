@@ -9,7 +9,9 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "verify:feed": "tsx scripts/verify-feed.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "web": "vite",
+    "web:build": "vite build"
   },
   "keywords": [
     "trading",
@@ -36,6 +38,7 @@
     "@types/node": "^20.17.19",
     "typescript": "^5.7.3",
     "tsx": "^4.19.3",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "vite": "^5.4.11"
   }
 }

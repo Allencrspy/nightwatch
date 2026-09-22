@@ -241,6 +241,29 @@ export class DhanMarketDataService {
     };
   }
 
+  /**
+   * Proves a set of credentials actually works before a session is issued.
+   *
+   * Uses a real index quote rather than a cheaper "is this well-formed" check:
+   * a session that reports itself connected while holding a token Dhan will
+   * reject is the same lie as a sandbox fallback, one layer up.
+   */
+  public async verifyCredentials(): Promise<{ ok: true } | { ok: false; reason: string }> {
+    try {
+      await this.getIndexQuote('NIFTY 50');
+      return { ok: true };
+    } catch (err: any) {
+      const status = err?.detail?.status ?? err?.statusCode;
+      if (err instanceof UpstreamError && /rejected/i.test(err.message)) {
+        return { ok: false, reason: 'Dhan rejected these credentials. Check the token and client id.' };
+      }
+      return {
+        ok: false,
+        reason: err?.message ?? `Could not reach Dhan to verify the credentials (${status ?? 'no status'}).`,
+      };
+    }
+  }
+
   // --- internals ---
 
   private async post(pathname: string, payload: unknown, context: string): Promise<any> {

@@ -52,6 +52,17 @@ export class DhanAuthService {
     return { sessionId: session.id, status: this.store.status(session.id) };
   }
 
+  /**
+   * Creates a session from credentials the caller has already verified against
+   * Dhan. Verification is the caller's job precisely so this cannot be used to
+   * mint a session for a token that does not work.
+   */
+  public createSessionFromToken(accessToken: string, dhanClientId: string): CompletedLogin {
+    const session = this.store.create(accessToken, dhanClientId, null);
+    logger.info({ dhanClientId }, 'Dhan session established from a user-supplied token');
+    return { sessionId: session.id, status: this.store.status(session.id) };
+  }
+
   /** The access token for a session, or null. Callers must handle null. */
   public getAccessToken(sessionId: string): string | null {
     return this.store.getAccessToken(sessionId);
