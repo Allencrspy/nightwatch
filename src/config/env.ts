@@ -35,8 +35,22 @@ const envSchema = z
       .url()
       .default('https://images.dhan.co/api-data/api-scrip-master.csv'),
 
+    /** Which analyst to use. 'auto' picks whichever key is present. */
+    LLM_PROVIDER: z.enum(['auto', 'anthropic', 'openai']).default('auto'),
+
+    ANTHROPIC_API_KEY: z.string().optional(),
+    ANTHROPIC_MODEL: z.string().default('claude-opus-5'),
+
     OPENAI_API_KEY: z.string().optional(),
     OPENAI_MODEL: z.string().default('gpt-4o'),
+
+    /**
+     * Web search for the analyst, so Part 8 (catalysts) can be answered.
+     * The framework's manual runs had browsing; without it every catalyst is
+     * UNKNOWN and drops out of the score. Anthropic path only.
+     */
+    ANALYST_WEB_SEARCH: z.string().transform((v) => v !== 'false').default('true'),
+    ANALYST_MAX_SEARCHES: z.string().transform((v) => parseInt(v, 10)).default('8'),
 
     /** Encrypts Dhan access tokens at rest. Must be set in production. */
     TOKEN_ENCRYPTION_SECRET: z.string().min(32).default(DEV_ONLY_SECRET),

@@ -121,6 +121,10 @@ export const IntradayAnalysisResponseSchema = z
     analyst: z.enum(['OPENAI', 'RULE_ENGINE']),
     /** Which prompt produced this. A changed prompt is a changed system. */
     promptVersion: z.string().nullable().default(null),
+    /** The exact model, so the outcome log can compare like with like. */
+    analystModel: z.string().nullable().default(null),
+    /** Sources the analyst consulted when researching catalysts. */
+    sources: z.array(z.object({ title: z.string(), url: z.string() })).default([]),
     /** The analyst's own argument against tonight's list. */
     selfCritique: z.string().nullable().default(null),
     dataNotes: z.array(z.string()),

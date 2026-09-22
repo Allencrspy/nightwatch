@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { env } from '../../config/env.js';
 import { logger } from '../../utils/logger.js';
 import type { StockCandidateData } from '../scanner/candidate-scanner.js';
@@ -7,6 +6,7 @@ import type { QuoteWithChange } from '../dhan/dhan-market-data.service.js';
 import type { IntradayAnalysisResponse, IntradaySetup } from '../../schemas/analysis-response.schema.js';
 import { buildFactSheet, type FactSheet } from './fact-sheet.js';
 import { FRAMEWORK_SYSTEM_PROMPT, PROMPT_VERSION } from './framework-prompt.js';
+import { runAnalyst, activeProvider } from './providers.js';
 
 export interface ScoredCandidate {
   candidate: StockCandidateData;
@@ -37,17 +37,13 @@ export interface AnalystInput {
 const MAX_DAILY_LOSS_FRACTION = 0.01;
 
 export class AiAnalystService {
-  private openai: OpenAI | null = null;
-
-  constructor() {
-    if (env.OPENAI_API_KEY) this.openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-  }
-
   public async analyzeIntradaySetups(input: AnalystInput): Promise<IntradayAnalysisResponse> {
     const base = this.synthesizeRuleBased(input);
 
-    if (!this.openai) {
-      base.dataNotes.push('No OpenAI key configured; setups come from the deterministic rule engine only.');
+    if (!activeProvider()) {
+      base.dataNotes.push(
+        'No analyst model configured (ANTHROPIC_API_KEY or OPENAI_API_KEY); setups come from the deterministic rule engine only.'
+      );
       return base;
     }
 
@@ -56,8 +52,8 @@ export class AiAnalystService {
       return llm;
     } catch (err: any) {
       // Falling back is fine — the response says which engine produced it.
-      logger.warn({ error: err.message }, 'OpenAI analyst failed; returning rule-engine output');
-      base.dataNotes.push(`OpenAI analyst unavailable (${err.message}); rule engine used instead.`);
+      logger.warn({ error: err.message }, 'Analyst failed; returning rule-engine output');
+      base.dataNotes.push(`Analyst unavailable (${err.message}); rule engine used instead.`);
       return base;
     }
   }
@@ -193,6 +189,8 @@ export class AiAnalystService {
     return {
       generatedAt: new Date().toISOString(),
       analyst: 'RULE_ENGINE',
+      analystModel: null,
+      sources: [],
       promptVersion: null,
       selfCritique: null,
       dataNotes,
@@ -271,19 +269,13 @@ export class AiAnalystService {
       'Running framework analyst'
     );
 
-    const res = await this.openai!.chat.completions.create({
-      model: env.OPENAI_MODEL,
-      response_format: { type: 'json_object' },
-      temperature: 0.2,
-      messages: [
-        { role: 'system', content: FRAMEWORK_SYSTEM_PROMPT },
-        { role: 'user', content: JSON.stringify(sheet) },
-      ],
-    });
+    const result = await runAnalyst(FRAMEWORK_SYSTEM_PROMPT, JSON.stringify(sheet));
+    const out = result.json;
 
-    const content = res.choices[0]?.message?.content;
-    if (!content) throw new Error('empty response from the analyst');
-    const out = JSON.parse(content);
+    logger.info(
+      { model: result.model, usage: result.usage, sources: result.citations.length },
+      'Analyst finished'
+    );
 
     const known = new Map(input.scoredCandidates.map((sc) => [sc.candidate.quote.symbol, sc.candidate]));
     const maxRiskAmount = sheet.risk.maxRiskPerTrade;
@@ -352,6 +344,8 @@ export class AiAnalystService {
     return {
       ...base,
       analyst: 'OPENAI',
+      analystModel: result.model,
+      sources: result.citations,
       promptVersion: PROMPT_VERSION,
       selfCritique: out.selfCritique ?? null,
       noHighQualitySetup,
