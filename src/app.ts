@@ -6,7 +6,7 @@ import { authRoutes } from './routes/auth.js';
 import { analysisRoutes } from './routes/analysis.js';
 import { analystRoutes } from './routes/analyst.js';
 import { monitorRoutes } from './routes/monitor.js';
-import { env } from './config/env.js';
+import { env, frontendOrigins } from './config/env.js';
 import { AppError } from './utils/errors.js';
 import { logger } from './utils/logger.js';
 
@@ -14,7 +14,15 @@ export function buildApp() {
   const app = Fastify({ logger: false });
 
   // Allowlist, not `origin: true`. The dashboard's origin, plus localhost in dev.
-  const allowed = new Set<string>([env.FRONTEND_ORIGIN, env.APP_BASE_URL]);
+  const allowed = new Set<string>([...frontendOrigins(env.FRONTEND_ORIGIN), env.APP_BASE_URL]);
+
+  // A public page (GitHub Pages) calling this server on localhost triggers
+  // Chrome's private-network preflight, which must be answered explicitly.
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.method === 'OPTIONS' && request.headers['access-control-request-private-network'] === 'true') {
+      reply.header('Access-Control-Allow-Private-Network', 'true');
+    }
+  });
   app.register(cors, {
     origin(origin, cb) {
       // No Origin header: curl, Postman, or the OAuth redirect itself.

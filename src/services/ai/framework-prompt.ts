@@ -6,7 +6,8 @@ import { outputContract } from './output-contract.js';
 /**
  * The Night-Before NSE Intraday Stock Selection prompt, used verbatim.
  *
- * It lives in prompts/night-before.md exactly as it was run by hand for a
+ * It lives in prompts/night-before.local.md (gitignored, kept private) exactly
+ * as it was run by hand for a
  * month with good results, and it is not paraphrased here. An earlier version
  * of this file rewrote it, and in doing so added rules the original never had
  * — a hard 1.5:1 risk-reward floor, stops restricted to a fixed menu of
@@ -22,12 +23,13 @@ import { outputContract } from './output-contract.js';
 export const PROMPT_VERSION = 'night-before-v7';
 
 function promptPath(): string {
-  const candidates = [
-    path.resolve(__dirname, '../../../prompts/night-before.md'),
-    path.resolve(process.cwd(), 'prompts/night-before.md'),
-  ];
+  // Your own prompt, kept out of git; the committed file is a placeholder.
+  const candidates = ['night-before.local.md', 'night-before.md'].flatMap((f) => [
+    path.resolve(__dirname, '../../../prompts', f),
+    path.resolve(process.cwd(), 'prompts', f),
+  ]);
   const found = candidates.find((p) => fs.existsSync(p));
-  if (!found) throw new Error('prompts/night-before.md not found');
+  if (!found) throw new Error('prompts/night-before.local.md not found — put your prompt there');
   return found;
 }
 

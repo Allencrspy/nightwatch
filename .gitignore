@@ -10,3 +10,4 @@ coverage/
 .briefs.json
 .plan-history.json
 .plan-history.test.json
+prompts/*.local.md

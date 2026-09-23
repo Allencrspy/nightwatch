@@ -3,7 +3,7 @@ import { DhanAuthService } from '../services/auth/dhan-auth.service.js';
 import { DhanCallbackQuerySchema, DhanLoginQuerySchema, DhanTokenLoginSchema } from '../schemas/auth.schema.js';
 import { DhanMarketDataService } from '../services/dhan/dhan-market-data.service.js';
 import { readSessionId, requireSession } from '../plugins/require-session.js';
-import { env, isDhanOAuthConfigured } from '../config/env.js';
+import { env, isDhanOAuthConfigured, frontendOrigins } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
 
 /**
@@ -13,7 +13,7 @@ import { AppError } from '../utils/errors.js';
  */
 function callbackPage(payload: Record<string, unknown>): string {
   const json = JSON.stringify(payload).replace(/</g, '\\u003c');
-  const origin = JSON.stringify(env.FRONTEND_ORIGIN);
+  const origins = JSON.stringify(frontendOrigins(env.FRONTEND_ORIGIN));
   const ok = payload.ok === true;
   return `<!doctype html>
 <meta charset="utf-8"><title>${ok ? 'Connected' : 'Login failed'}</title>
@@ -29,7 +29,8 @@ function callbackPage(payload: Record<string, unknown>): string {
 </div>
 <script>
   var payload = ${json};
-  try { if (window.opener) window.opener.postMessage(payload, ${origin}); } catch (e) {}
+  // Only the opener whose origin matches receives it; the rest are dropped.
+  ${origins}.forEach(function(o){ try { if (window.opener) window.opener.postMessage(payload, o); } catch (e) {} });
   if (${ok}) setTimeout(function(){ try { window.close(); } catch (e) {} }, 1200);
 </script>`;
 }

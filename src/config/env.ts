@@ -14,7 +14,8 @@ const envSchema = z
     /** Where this API is reachable — used to build the OAuth redirect URI. */
     APP_BASE_URL: z.string().url().default('http://localhost:3000'),
     /** Exact origin of the dashboard. Used for CORS and the postMessage target. */
-    FRONTEND_ORIGIN: z.string().default('http://localhost:5173'),
+    // Comma-separated: the local dashboard and the GitHub Pages copy.
+    FRONTEND_ORIGIN: z.string().default('http://localhost:5273,https://allencrspy.github.io'),
 
     /** Dhan REST base for market data. */
     DHAN_API_BASE: z.string().url().default('https://api.dhan.co/v2'),
@@ -86,3 +87,7 @@ export const env: Env = parsed.data;
 export const isDhanOAuthConfigured = Boolean(
   env.DHAN_API_KEY && env.DHAN_API_SECRET && env.DHAN_CLIENT_ID
 );
+
+/** FRONTEND_ORIGIN may list several origins, comma-separated. */
+export const frontendOrigins = (value: string): string[] =>
+  value.split(',').map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean);
