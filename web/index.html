@@ -998,7 +998,7 @@ function rowFromApi(s, i){
     rrStated:s.riskRewardStated,
     posValue:s.positionSizing ? s.positionSizing.positionValue : null,
     shares:s.positionSizing ? s.positionSizing.shares : null,
-    tier:s.inTop3 ? "Top 3" : null,
+    tier:s.top3Rank ? `Top 3 · #${s.top3Rank}` : (s.inTop3 ? "Top 3" : null),
     serverWarnings:s.warnings || []
   });
 }
@@ -1822,7 +1822,9 @@ function planSummary(p){
         <dl class="kv">
           <dt>Best long</dt><dd style="font-family:var(--ui);text-align:right;max-width:40ch;color:var(--ink-2)">${esc(p.bestLong || "none")}</dd>
           <dt>Best short</dt><dd style="font-family:var(--ui);text-align:right;max-width:40ch;color:var(--ink-2)">${esc(p.bestShort || "none")}</dd>
+          ${[0,1,2].map(i => `<dt>Top 3 · #${i+1}</dt><dd style="font-family:var(--ui);text-align:right;color:var(--ink-2)">${esc((p.top3||[])[i] || "—")}</dd>`).join("")}
         </dl>
+        ${(p.top3||[]).length < 3 ? `<p class="dim" style="margin-top:8px;font-size:12px">ChatGPT named ${(p.top3||[]).length} of 3 — it found no other setup it rated highly enough.</p>` : ""}
         ${p.selfCritique ? `<p class="dim" style="margin-top:10px;font-size:12px"><strong>Self-critique:</strong> ${esc(p.selfCritique)}</p>` : ""}
       </div>
     </div>

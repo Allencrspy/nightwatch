@@ -45,6 +45,8 @@ export interface PlanSetup {
   /** Part 18: maximum acceptable loss ÷ stop-loss distance. */
   positionSizing: { maxRiskRupees: number; shares: number | null; positionValue: number | null };
   inTop3: boolean;
+  /** 1-3, the analyst's order in its Part 19 top 3; null when not in it. */
+  top3Rank: number | null;
   /** Present when there is exchange data, so the monitor can watch it live. */
   monitorable: boolean;
   warnings: string[];
@@ -228,6 +230,7 @@ export function readPlan(
       conditions,
       positionSizing: { maxRiskRupees, shares, positionValue },
       inTop3: top3.includes(symbol),
+      top3Rank: top3.includes(symbol) ? top3.indexOf(symbol) + 1 : null,
       monitorable: Boolean(row) && entry !== null && stop !== null,
       warnings: w,
     };
