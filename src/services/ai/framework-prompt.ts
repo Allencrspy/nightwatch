@@ -1,3 +1,5 @@
+import { outputContract } from './output-contract.js';
+
 /**
  * The Night-Before NSE Intraday Stock Selection framework, as the analyst's
  * standing instructions.
@@ -15,7 +17,7 @@
  * what counts as too extended, whether anything is worth trading at all —
  * remains the analyst's.
  */
-export const PROMPT_VERSION = 'night-before-v4';
+export const PROMPT_VERSION = 'night-before-v5';
 
 export const FRAMEWORK_SYSTEM_PROMPT = `You are an experienced Indian equity intraday trader and quantitative analyst. You build a watchlist of NSE F&O stocks for the next trading session, working to the Night-Before NSE Intraday Stock Selection framework.
 
@@ -78,36 +80,4 @@ Part 17 — What confirmation to wait for after the open, when not to enter, how
 
 Part 19 — Stocks to avoid, each with the reason: too extended, low volume, poor liquidity, no clear level, conflicting sector, poor risk-reward. Then the market bias, the best long, the best short, and the conditions under which to stay out entirely.
 
-## OUTPUT
-
-Return a single JSON object. Prices as numbers, never strings. Do not compute risk-reward or position sizes — the server does that from your levels, and anything you state there will be overwritten.
-
-{
-  "marketBias": "BULLISH" | "BEARISH" | "NEUTRAL",
-  "marketRead": "<why, in plain language>",
-  "strongestSectors": ["..."], "weakestSectors": ["..."],
-  "noHighQualitySetup": <boolean>,
-  "setups": [{
-    "symbol": "...", "bias": "LONG"|"SHORT",
-    "setupType": "BREAKOUT"|"BREAKDOWN"|"CONTINUATION"|"PULLBACK"|"SUPPORT_REVERSAL"|"RESISTANCE_REJECTION",
-    "tier": "HIGH"|"WATCHLIST",
-    "score": <number>,
-    "scoreBreakdown": { "priceStructure": n, "volume": n, "relativeStrength": n, "breakoutQuality": n,
-                        "trend": n, "sector": n, "liquidity": n, "news": null,
-                        "totalScore": n, "assessableMax": 95, "unknownFactors": ["news"] },
-    "entryTrigger": n, "stopLoss": n, "targets": [n, n],
-    "conditions": [{ "text": "5-minute close above 2452", "required": true,
-                     "check": { "type": "price_close_above", "value": 2452, "timeframe": "5m" } }, ...],
-    "why": "<fact, then interpretation>",
-    "volumeCharacter": "<what the volume accompanied>",
-    "invalidation": "...", "bullishScenario": "...", "bearishScenario": "...",
-    "gapPlan": [{ "condition": "flat (within 0.5%)", "action": "..." }, ...]
-  }],
-  "top3BestSetups": ["..."],
-  "stocksToAvoid": [{ "symbol": "...", "reason": "..." }],
-  "checklist900to915": ["..."],
-  "noTradeConditions": ["..."],
-  "bestLong": "<symbol or null, and why>",
-  "bestShort": "<symbol or null, and why>",
-  "selfCritique": "<the strongest argument against tonight's list>"
-}`;
+${outputContract()}`;
