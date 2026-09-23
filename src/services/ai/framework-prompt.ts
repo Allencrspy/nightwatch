@@ -19,7 +19,7 @@ import { outputContract } from './output-contract.js';
  *     rather than scraped. Web search stays on for news, catalysts and F&O.
  *   - a request to save a summary file at the end, so the app can read it.
  */
-export const PROMPT_VERSION = 'night-before-v6';
+export const PROMPT_VERSION = 'night-before-v7';
 
 function promptPath(): string {
   const candidates = [
@@ -59,7 +59,11 @@ export function dataSection(ctx: MarketContext): string {
 
   return `## MARKET DATA — NSE exchange feed via Dhan, session of ${ctx.asOf}
 
-These figures come straight from the exchange feed and are exact. Use them for prices, volumes and technical levels in preference to figures on news or broker sites, which often round or lag. For everything this table does not contain — news, catalysts, corporate announcements, open interest and other F&O data, global cues — search the web as you normally would.
+These figures come straight from the exchange feed and are exact. Use them for prices, volumes and technical levels in preference to figures on news or broker sites, which often round or lag.
+
+This table is not your only source. Before you decide anything, search the web for everything the table does not contain — Part 8 news and catalysts for every stock you shortlist, corporate announcements, open interest and other F&O data, GIFT Nifty and global cues — and name the source in each catalyst. "No catalyst in the supplied data" is not an acceptable answer; say what you searched and what you found.
+
+Use only the rules in the prompt above. Ignore any rules you may remember from earlier Nightwatch briefs or conversations: there is no fixed minimum risk-reward, stops and targets do not have to be levels from this table, and there is no "fact sheet" — choose levels as the prompt tells you to.
 
 NIFTY 50    close ${f(ctx.nifty.lastPrice)} (${sign(ctx.nifty.changePercent)})  open ${f(ctx.nifty.open)}  high ${f(ctx.nifty.high)}  low ${f(ctx.nifty.low)}
 BANK NIFTY  close ${f(ctx.bankNifty.lastPrice)} (${sign(ctx.bankNifty.changePercent)})  open ${f(ctx.bankNifty.open)}  high ${f(ctx.bankNifty.high)}  low ${f(ctx.bankNifty.low)}
