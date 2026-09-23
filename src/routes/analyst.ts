@@ -9,7 +9,11 @@ import { requireSession } from '../plugins/require-session.js';
 import { AppError } from '../utils/errors.js';
 import { buildAnalystInput } from '../services/scanner/run-scan.js';
 import { logger } from '../utils/logger.js';
-import { PlanHistory } from '../services/ai/plan-history.js';
+import { PlanHistory, planContext } from '../services/ai/plan-history.js';
+import { reviewPlan, trackRecord, ReviewNotReadyError } from '../services/monitor/review.js';
+import { DhanMarketDataService } from '../services/dhan/dhan-market-data.service.js';
+import { DhanAuthService } from '../services/auth/dhan-auth.service.js';
+import { NotAuthenticatedError } from '../utils/errors.js';
 
 const AnalystResponseSchema = z.object({
   /** Optional: when absent (e.g. after a page reload) the reply's own briefId is used. */
@@ -73,8 +77,9 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/v1/analyst/brief', { preHandler: requireSession }, async (request, reply) => {
     const { capital, riskPercent, maxTrades, universe } = IntradayAnalysisRequestSchema.parse(request.body || {});
 
+    const started = Date.now();
     const input = await buildAnalystInput(request, { capital, riskPercent, maxTrades, universe });
-    const brief = BriefStore.save(input);
+    const brief = BriefStore.save(input, { scanMs: Date.now() - started });
     const text = pasteBrief({ briefId: brief.id, capital, riskPercent, context: marketContext(input) });
 
     logger.info({ briefId: brief.id, universe: input.universe.length, chars: text.length }, 'Analyst brief issued');
@@ -136,7 +141,10 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     BriefStore.attachPlan(briefId, plan);
-    PlanHistory.add({ briefId, acceptedAt: plan.acceptedAt, universeSize: brief.input.universe?.length ?? 0, plan });
+    PlanHistory.add({
+      briefId, acceptedAt: plan.acceptedAt, universeSize: brief.input.universe?.length ?? 0, plan,
+      context: planContext(brief, plan),
+    });
     logger.info(
       { briefId, watchlist: plan.watchlist.length, setups: plan.setups.length,
         warnings: plan.setups.reduce((a, s) => a + s.warnings.length, 0) },
@@ -152,7 +160,9 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
 
   /** The most recent accepted plan, so a page reload does not lose it. */
   fastify.get('/api/v1/analyst/latest', { preHandler: requireSession }, async (_request, reply) => {
-    return reply.send({ success: true, data: PlanHistory.latest()?.plan ?? BriefStore.latestWithPlan()?.plan ?? null });
+    const rec = PlanHistory.latest();
+    if (rec) return reply.send({ success: true, data: { ...rec.plan, context: rec.context ?? null, review: rec.review ?? null } });
+    return reply.send({ success: true, data: BriefStore.latestWithPlan()?.plan ?? null });
   });
 
   /** Every past plan, newest first, as a short summary each. */
@@ -160,9 +170,50 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ success: true, data: PlanHistory.list() });
   });
 
+  /** Replays the plan's setups against the session they were for, and saves the result. */
+  fastify.post<{ Params: { briefId: string } }>('/api/v1/analyst/plans/:briefId/review', { preHandler: requireSession }, async (request, reply) => {
+    const rec = PlanHistory.get(request.params.briefId);
+    if (!rec) throw new AppError(404, 'PLAN_NOT_FOUND', 'No saved plan for that brief.');
+
+    const auth = DhanAuthService.getInstance();
+    const accessToken = auth.getAccessToken(request.sessionId as string);
+    const clientId = auth.getClientId(request.sessionId as string);
+    if (!accessToken || !clientId) throw new NotAuthenticatedError();
+
+    try {
+      const review = await reviewPlan(new DhanMarketDataService(accessToken, clientId), rec);
+      PlanHistory.setReview(rec.briefId, review);
+      logger.info({ briefId: rec.briefId, sessionDate: review.sessionDate, final: review.final,
+        statuses: review.setups.map((s) => `${s.symbol}:${s.outcome.status}`) }, 'Plan reviewed');
+      return reply.send({ success: true, data: review });
+    } catch (err) {
+      if (err instanceof ReviewNotReadyError) throw new AppError(409, 'SESSION_NOT_STARTED', err.message);
+      throw err;
+    }
+  });
+
+  /** Results across every reviewed plan. */
+  fastify.get('/api/v1/track-record', { preHandler: requireSession }, async (_request, reply) => {
+    const records = PlanHistory.all();
+    return reply.send({
+      success: true,
+      data: {
+        summary: trackRecord(records),
+        runs: records.filter((r) => r.review).map((r) => ({
+          briefId: r.briefId,
+          acceptedAt: r.acceptedAt,
+          sessionDate: r.review!.sessionDate,
+          final: r.review!.final,
+          setups: r.review!.setups,
+          summary: trackRecord([r]),
+        })),
+      },
+    });
+  });
+
   fastify.get<{ Params: { briefId: string } }>('/api/v1/analyst/plans/:briefId', { preHandler: requireSession }, async (request, reply) => {
     const rec = PlanHistory.get(request.params.briefId);
     if (!rec) throw new AppError(404, 'PLAN_NOT_FOUND', 'No saved plan for that brief.');
-    return reply.send({ success: true, data: rec.plan });
+    return reply.send({ success: true, data: { ...rec.plan, context: rec.context ?? null, review: rec.review ?? null } });
   });
 };

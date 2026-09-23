@@ -1,6 +1,7 @@
 import { DhanMarketDataService, type Candle } from '../dhan/dhan-market-data.service.js';
 import { SECTOR_MAPPINGS } from '../../config/constants.js';
 import { logger } from '../../utils/logger.js';
+import { replaySession, type Outcome } from './outcome.js';
 /** The parts of a setup the monitor needs. Any plan's setups satisfy it. */
 export interface MonitorSetup {
   symbol: string;
@@ -47,8 +48,8 @@ export interface SetupMonitorResult {
   requiredTotal: number;
   /** True only when every required condition is MET. */
   entryValid: boolean;
-  /** Set when the stop or a target has already been reached. */
-  outcome: 'PENDING' | 'TRIGGERED' | 'STOPPED' | 'T1_HIT' | 'T2_HIT' | null;
+  /** The session so far, replayed bar by bar against the plan's levels. */
+  outcome: Outcome;
 }
 
 export interface MarketSnapshot {
@@ -149,25 +150,6 @@ function evaluateOne(
   }
 }
 
-/** Where price has already got to relative to the plan's own levels. */
-function classifyOutcome(setup: MonitorSetup, candles: Candle[]): SetupMonitorResult['outcome'] {
-  if (!candles.length) return null;
-  const long = setup.bias === 'LONG';
-  const highs = Math.max(...candles.map((c) => c.high));
-  const lows = Math.min(...candles.map((c) => c.low));
-
-  const hit = (level: number) => (long ? highs >= level : lows <= level);
-  const stopped = long ? lows <= setup.stopLoss : highs >= setup.stopLoss;
-  const triggered = hit(setup.entryTrigger);
-
-  if (!triggered) return 'PENDING';
-  // Plans may carry one target or two.
-  if (setup.targets.length > 1 && hit(setup.targets[1])) return 'T2_HIT';
-  if (setup.targets.length > 0 && hit(setup.targets[0])) return 'T1_HIT';
-  if (stopped) return 'STOPPED';
-  return 'TRIGGERED';
-}
-
 /**
  * Live index levels and sector moves.
  *
@@ -248,6 +230,8 @@ export async function evaluateSetup(
     requiredTotal: required.length,
     // Every required condition must be MET. UNKNOWN is not a pass.
     entryValid: required.length > 0 && requiredMet === required.length,
-    outcome: classifyOutcome(setup, candles),
+    outcome: replaySession(setup, candles, {
+      sessionClosed: Date.now() >= new Date(`${new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10)}T15:30:00+05:30`).getTime(),
+    }),
   };
 }

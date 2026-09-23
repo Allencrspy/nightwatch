@@ -25,6 +25,8 @@ export interface StoredBrief {
   /** The accepted plan, once one has been produced from this brief. */
   plan?: Plan;
   planAcceptedAt?: string;
+  /** How long the scan behind this brief took. */
+  scanMs?: number;
 }
 
 const TTL_MS = 18 * 60 * 60 * 1000; // an overnight window, and no longer
@@ -38,7 +40,7 @@ export class BriefStore {
     return path.resolve(process.cwd(), FILE);
   }
 
-  public static save(input: AnalystInput): StoredBrief {
+  public static save(input: AnalystInput, meta: { scanMs?: number } = {}): StoredBrief {
     this.load();
     this.prune();
 
@@ -47,6 +49,7 @@ export class BriefStore {
       createdAt: new Date().toISOString(),
       input,
       candidateCount: input.scoredCandidates.length,
+      scanMs: meta.scanMs,
     };
     this.briefs.set(brief.id, brief);
     this.persist();

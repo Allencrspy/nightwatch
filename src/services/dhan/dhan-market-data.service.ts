@@ -170,23 +170,29 @@ export class DhanMarketDataService {
    * Intraday candles at the given minute interval. This is what the condition
    * monitor runs on: 5-minute closes and per-bar volume.
    */
-  public async getIntradayCandles(symbol: string, interval: '1' | '5' | '15' | '25' | '60' = '5'): Promise<Candle[]> {
+  /** One session's intraday bars: today's by default, or a past session's (YYYY-MM-DD, IST). */
+  public async getIntradayCandles(
+    symbol: string,
+    interval: '1' | '5' | '15' | '25' | '60' = '5',
+    sessionDate?: string
+  ): Promise<Candle[]> {
     const securityId = await InstrumentMaster.securityId(symbol);
 
     // Dhan treats the intraday range as exclusive of toDate: asking for
     // fromDate == toDate returns zero bars, silently. The monitor then sees
     // no data and reports every condition as unknown, which looks exactly
     // like a session that has not opened.
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const from = sessionDate ?? toIsoDate(new Date());
+    const next = new Date(`${from}T12:00:00+05:30`);
+    next.setDate(next.getDate() + 1);
 
     const payload = {
       securityId,
       exchangeSegment: SEGMENT_NSE_EQ,
       instrument: 'EQUITY',
       interval,
-      fromDate: toIsoDate(new Date()),
-      toDate: toIsoDate(tomorrow),
+      fromDate: from,
+      toDate: toIsoDate(next),
     };
 
     const data = await this.post('/charts/intraday', payload, symbol);
