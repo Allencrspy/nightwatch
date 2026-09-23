@@ -1,34 +1,14 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { IntradayAnalysisRequestSchema } from '../schemas/analysis-request.schema.js';
-import { IntradayAnalysisResponseSchema } from '../schemas/analysis-response.schema.js';
-import { AiAnalystService } from '../services/ai/ai-analyst.service.js';
 import { BriefStore } from '../services/ai/brief-store.js';
+import { pasteBrief, PROMPT_VERSION } from '../services/ai/framework-prompt.js';
+import { readPlan } from '../services/ai/plan-reader.js';
+import { marketContext } from '../services/ai/ai-analyst.service.js';
 import { requireSession } from '../plugins/require-session.js';
 import { AppError } from '../utils/errors.js';
 import { buildAnalystInput } from '../services/scanner/run-scan.js';
 import { logger } from '../utils/logger.js';
-
-/**
- * Delivery instructions for the paste bridge only.
- *
- * Kept out of the shared framework prompt on purpose: over the API there is
- * no file to download and no clipboard to mangle, so this would be noise
- * there. Here it earns its place — a file avoids the typographic quotes chat
- * clients substitute into JSON, which is the single most common way a reply
- * arrives unparseable.
- */
-function deliveryInstructions(briefId: string): string {
-  return `## HOW TO DELIVER YOUR ANSWER
-
-This is brief \`${briefId}\`. Make \`"briefId": "${briefId}"\` the first field of your JSON, so the reply can be matched to the facts you analysed.
-
-Save the JSON object as a downloadable file named \`nightwatch-reply-${briefId}.json\`, containing the JSON and nothing else — no commentary before or after, no code fences. I will upload that file directly.
-
-If you cannot produce a file, print the raw JSON instead, and use only straight quotes (") — not typographic quotes (" ") — or it will not parse.
-
-Analyse only the candidates in the fact sheet below. If this conversation contains an earlier brief, ignore it entirely: tonight's candidates are different.`;
-}
 
 const AnalystResponseSchema = z.object({
   briefId: z.string().min(1),
@@ -87,37 +67,24 @@ function extractJson(raw: string): any {
  * than a generated one.
  */
 export const analystRoutes: FastifyPluginAsync = async (fastify) => {
-  const analyst = new AiAnalystService();
-
   /** Run the scan and produce a brief to paste. */
   fastify.post('/api/v1/analyst/brief', { preHandler: requireSession }, async (request, reply) => {
     const { capital, riskPercent, maxTrades } = IntradayAnalysisRequestSchema.parse(request.body || {});
 
     const input = await buildAnalystInput(request, { capital, riskPercent, maxTrades });
-    const base = analyst.synthesizeRuleBased(input);
-    const { prompt, factSheet } = analyst.buildBrief(input);
-    const brief = BriefStore.save(input, base);
+    const brief = BriefStore.save(input);
+    const text = pasteBrief({ briefId: brief.id, capital, riskPercent, context: marketContext(input) });
 
-    logger.info({ briefId: brief.id, candidates: brief.candidateCount }, 'Analyst brief issued');
+    logger.info({ briefId: brief.id, universe: input.universe.length, chars: text.length }, 'Analyst brief issued');
 
     return reply.send({
       success: true,
       data: {
         briefId: brief.id,
         createdAt: brief.createdAt,
-        candidateCount: brief.candidateCount,
-        screenedOutCount: factSheet.screenedOut.length,
-        prompt,
-        factSheet,
-        // Ready to paste in one go.
-        pasteText: [
-          prompt,
-          '---',
-          deliveryInstructions(brief.id),
-          '---',
-          'FACT SHEET (use only these numbers):',
-          JSON.stringify(factSheet, null, 2),
-        ].join('\n\n'),
+        universeCount: input.universe.length,
+        promptVersion: PROMPT_VERSION,
+        pasteText: text,
       },
     });
   });
@@ -136,12 +103,12 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const out = extractJson(response);
-    const briefSymbols = brief.input.scoredCandidates.map((sc) => sc.candidate.quote.symbol);
-    const replySymbols: string[] = (Array.isArray(out.setups) ? out.setups : [])
-      .map((x: any) => String(x?.symbol ?? ''))
-      .filter(Boolean);
+    if (!out || typeof out !== 'object' || Array.isArray(out)) {
+      throw new AppError(400, 'INVALID_JSON', 'The reply is not a JSON object.');
+    }
 
-    // A reply that names its brief can be checked directly.
+    // Identity only: is this the reply to this brief? Nothing here judges
+    // the analysis itself.
     if (typeof out.briefId === 'string' && out.briefId !== briefId) {
       throw new AppError(
         409,
@@ -151,40 +118,22 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
       );
     }
 
-    // One that does not can still be recognised as stale: if it proposes
-    // setups and not one of them is among tonight's candidates, it is almost
-    // certainly an earlier night's reply. Accepting it would record an empty
-    // plan and leave the monitor watching nothing, with no sign anything went
-    // wrong.
-    if (replySymbols.length && !replySymbols.some((sym) => briefSymbols.includes(sym))) {
-      throw new AppError(
-        409,
-        'STALE_REPLY',
-        `This reply analyses ${replySymbols.join(', ')} — none of which are in tonight's brief ` +
-          `(${briefSymbols.slice(0, 6).join(', ')}${briefSymbols.length > 6 ? `, +${briefSymbols.length - 6} more` : ''}). ` +
-          'It looks like a reply to an earlier brief. Paste tonight\'s brief into a new chat and upload that reply.'
-      );
-    }
-
-    const plan = analyst.mergeAnalystOutput(out, brief.input, brief.base, {
-      model: typeof out.model === 'string' ? out.model : 'pasted',
-      sources: Array.isArray(out.sources) ? out.sources.filter((s: any) => s?.url) : [],
+    const plan = readPlan(out, {
+      briefId,
+      promptVersion: PROMPT_VERSION,
+      source: 'pasted',
+      universe: brief.input.universe ?? [],
+      capital: brief.input.capital,
+      riskPercent: brief.input.riskPercent,
     });
 
-    const parsed = IntradayAnalysisResponseSchema.safeParse(plan);
-    if (!parsed.success) {
-      logger.warn({ briefId, issues: parsed.error.issues.length }, 'Pasted plan failed validation');
-      throw new AppError(
-        422,
-        'INVALID_PLAN',
-        'The pasted analysis failed validation and was withheld.',
-        parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      );
-    }
-
-    BriefStore.attachPlan(briefId, parsed.data);
-    logger.info({ briefId, setups: parsed.data.setups.length }, 'Pasted plan accepted');
-    return reply.send({ success: true, data: parsed.data });
+    BriefStore.attachPlan(briefId, plan);
+    logger.info(
+      { briefId, watchlist: plan.watchlist.length, setups: plan.setups.length,
+        warnings: plan.setups.reduce((a, s) => a + s.warnings.length, 0) },
+      'Analyst plan accepted'
+    );
+    return reply.send({ success: true, data: plan });
   });
 
   /** Briefs still inside their window, so the dashboard can resume one. */

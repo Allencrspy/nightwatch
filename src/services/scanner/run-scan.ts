@@ -6,6 +6,7 @@ import { DhanAuthService } from '../auth/dhan-auth.service.js';
 import { FNO_STOCK_UNIVERSE } from '../../config/constants.js';
 import { NotAuthenticatedError } from '../../utils/errors.js';
 import type { AnalystInput } from '../ai/ai-analyst.service.js';
+import { universeRow } from '../ai/universe.js';
 
 /**
  * Runs a full scan for the caller's Dhan session and shapes it for the
@@ -52,6 +53,10 @@ export async function buildAnalystInput(
     sectorPerformances: scan.sectorPerformances,
     skipped: scan.skipped,
     previousCloses: scan.previousCloses,
+    universe: [...scan.candidates, ...scan.rejected].map((c) => {
+      const sector = scan.sectorPerformances.find((s) => s.sector === c.sectorName);
+      return universeRow(c, sector ? sector.changePercent : null);
+    }),
     capital: opts.capital,
     riskPercent: opts.riskPercent,
     maxTrades: opts.maxTrades,

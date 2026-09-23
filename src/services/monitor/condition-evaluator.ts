@@ -1,7 +1,15 @@
 import { DhanMarketDataService, type Candle } from '../dhan/dhan-market-data.service.js';
 import { SECTOR_MAPPINGS } from '../../config/constants.js';
 import { logger } from '../../utils/logger.js';
-import type { IntradaySetup } from '../../schemas/analysis-response.schema.js';
+/** The parts of a setup the monitor needs. Any plan's setups satisfy it. */
+export interface MonitorSetup {
+  symbol: string;
+  bias: 'LONG' | 'SHORT';
+  entryTrigger: number;
+  stopLoss: number;
+  targets: number[];
+  conditions: Array<{ text: string; required: boolean; check: { type: string; [k: string]: any } }>;
+}
 
 /**
  * Evaluates a setup's entry conditions against live intraday data.
@@ -69,7 +77,7 @@ async function loadIntraday(market: DhanMarketDataService, symbol: string) {
 }
 
 function evaluateOne(
-  condition: IntradaySetup['conditions'][number],
+  condition: MonitorSetup['conditions'][number],
   ctx: { candles: Candle[]; vwap: number | null; last: Candle | null; snapshot: MarketSnapshot }
 ): EvaluatedCondition {
   const { check, text, required } = condition;
@@ -142,7 +150,7 @@ function evaluateOne(
 }
 
 /** Where price has already got to relative to the plan's own levels. */
-function classifyOutcome(setup: IntradaySetup, candles: Candle[]): SetupMonitorResult['outcome'] {
+function classifyOutcome(setup: MonitorSetup, candles: Candle[]): SetupMonitorResult['outcome'] {
   if (!candles.length) return null;
   const long = setup.bias === 'LONG';
   const highs = Math.max(...candles.map((c) => c.high));
@@ -153,8 +161,9 @@ function classifyOutcome(setup: IntradaySetup, candles: Candle[]): SetupMonitorR
   const triggered = hit(setup.entryTrigger);
 
   if (!triggered) return 'PENDING';
-  if (hit(setup.targets[1])) return 'T2_HIT';
-  if (hit(setup.targets[0])) return 'T1_HIT';
+  // Plans may carry one target or two.
+  if (setup.targets.length > 1 && hit(setup.targets[1])) return 'T2_HIT';
+  if (setup.targets.length > 0 && hit(setup.targets[0])) return 'T1_HIT';
   if (stopped) return 'STOPPED';
   return 'TRIGGERED';
 }
@@ -208,7 +217,7 @@ export async function marketSnapshot(
 
 export async function evaluateSetup(
   market: DhanMarketDataService,
-  setup: IntradaySetup,
+  setup: MonitorSetup,
   snapshot: MarketSnapshot
 ): Promise<SetupMonitorResult> {
   let candles: Candle[] = [];

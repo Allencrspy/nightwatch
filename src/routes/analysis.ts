@@ -1,10 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { IntradayAnalysisRequestSchema } from '../schemas/analysis-request.schema.js';
-import { IntradayAnalysisResponseSchema } from '../schemas/analysis-response.schema.js';
 import { AiAnalystService } from '../services/ai/ai-analyst.service.js';
 import { buildAnalystInput } from '../services/scanner/run-scan.js';
 import { requireSession } from '../plugins/require-session.js';
-import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
 export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
@@ -18,22 +16,8 @@ export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
       logger.info({ capital, riskPercent, maxTrades }, 'Running intraday analysis');
 
       const input = await buildAnalystInput(request, { capital, riskPercent, maxTrades });
-      const plan = await aiAnalyst.analyzeIntradaySetups(input);
-
-      // The schema enforces geometry, not just shape. A setup that fails here
-      // is a bug worth surfacing, not something to ship to the dashboard.
-      const parsed = IntradayAnalysisResponseSchema.safeParse(plan);
-      if (!parsed.success) {
-        logger.error({ issues: parsed.error.issues }, 'Generated plan failed its own invariants');
-        throw new AppError(
-          500,
-          'INVALID_PLAN',
-          'The generated plan failed validation and was withheld.',
-          parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-        );
-      }
-
-      return reply.send({ success: true, data: parsed.data });
+      const plan = await aiAnalyst.analyze(input);
+      return reply.send({ success: true, data: plan });
     }
   );
 };

@@ -910,8 +910,6 @@ async function disconnect(){
   render();
 }
 
-const MIN_RR = 1.5;
-
 function flagRow(r){
   const f = [];
   const long = r.bias === "LONG";
@@ -931,9 +929,6 @@ function flagRow(r){
     f.push(`R:R reported ${r.rrReported.toFixed(2)}, computes to ${r.rrComputed.toFixed(2)}`);
   if (r.posValue != null && r.posValue > state.capital)
     f.push(`Position ${rupee(r.posValue,0)} exceeds capital ${rupee(state.capital,0)}`);
-  // No-trade rule 8: R:R must hold at 1.5:1. An entry zone only clears it at the good end.
-  if (r.rrWorst != null && r.rrWorst < MIN_RR)
-    f.push(`R:R falls to ${r.rrWorst.toFixed(2)}:1 at ${rupee(r.entryWorst,0)}, below the ${MIN_RR}:1 floor`);
   return f;
 }
 
@@ -952,7 +947,7 @@ function finish(r){
     const w = Math.abs(r.entryWorst - r.stop);
     r.rrWorst = w ? Math.abs(r.targets[0].val - r.entryWorst) / w : null;
   }
-  r.flags = flagRow(r);
+  r.flags = Array.isArray(r.serverWarnings) ? r.serverWarnings : flagRow(r);
   return r;
 }
 
@@ -985,36 +980,26 @@ const CHECK_LABEL = {
 
 function rowFromApi(s, i){
   const long = s.bias === "LONG";
-
-  // Prefer the structured conditions the analyst returned — they are what the
-  // live monitor evaluates. Fall back to the trigger only for older plans.
-  const structured = Array.isArray(s.conditions) && s.conditions.length
-    ? s.conditions.map(c => ({
-        text: c.text,
-        req: c.required !== false,
-        kind: CHECK_LABEL[c.check && c.check.type] || "manual"
-      }))
-    : [{ text:`5-minute close ${long ? "above" : "below"} ${rupee(s.entryTrigger)}`, req:true, kind:"price" }];
-
-  const bd = s.scoreBreakdown || null;
-  const sum = bd ? ["priceStructure","volume","relativeStrength","breakoutQuality","trend","sector","liquidity","news"]
-    .reduce((a,k) => a + (Number(bd[k]) || 0), 0) : null;
+  const conditions = (s.conditions || []).map(c => ({
+    text: c.text,
+    req: c.required !== false,
+    kind: CHECK_LABEL[c.check && c.check.type] || "manual"
+  }));
 
   return finish({
-    src:"api", id:`api-${s.symbol}`, rank:i + 1, sym:s.symbol, bias:s.bias, setupType:s.setupType,
+    src:"api", id:`api-${s.symbol}`, rank:i + 1, sym:s.symbol, bias:s.bias, setupType:s.setup,
     entryLabel:rupee(s.entryTrigger), entryVal:s.entryTrigger,
-    conditions:structured,
-    stages:s.stages || [],
+    conditions,
     invalidation:s.invalidation,
     stop:s.stopLoss,
     targets:(s.targets || []).map((v,ix) => ({ label:`T${ix+1}`, val:v, label2:rupee(v) })),
-    score:s.score, breakdownSum:sum,
-    assessableMax: bd ? bd.assessableMax : null,
-    unknownFactors: bd ? (bd.unknownFactors || []) : [],
-    rrReported:typeof s.riskRewardRatio === "number" ? s.riskRewardRatio : null,
+    score:s.score, breakdownSum:null,
+    rrReported:null,
+    rrStated:s.riskRewardStated,
     posValue:s.positionSizing ? s.positionSizing.positionValue : null,
-    shares:s.positionSizing ? s.positionSizing.recommendedShares : null,
-    tier:s.tier === "HIGH" ? "High" : "Watchlist"
+    shares:s.positionSizing ? s.positionSizing.shares : null,
+    tier:s.inTop3 ? "Top 3" : null,
+    serverWarnings:s.warnings || []
   });
 }
 
@@ -1035,8 +1020,7 @@ async function generateBrief(){
     state.brief.data = data;
     state.brief.status = "ready";
     log("ok", "brief generated", {
-      briefId: data.briefId, candidates: data.candidateCount,
-      screenedOut: data.screenedOutCount, chars: data.pasteText.length
+      briefId: data.briefId, universe: data.universeCount, chars: data.pasteText.length
     });
   } catch (err){
     state.brief.status = "error";
@@ -1062,7 +1046,8 @@ async function submitAnalystResponse(text){
     state.view = "all";
     log("ok", "pasted plan accepted", {
       setups: plan.setups.length,
-      high: plan.setups.filter(x => x.tier === "HIGH").length,
+      watchlist: (plan.watchlist || []).length,
+      warnings: plan.setups.reduce((a, x) => a + (x.warnings || []).length, 0),
       noHighQualitySetup: plan.noHighQualitySetup
     });
   } catch (err){
@@ -1814,6 +1799,52 @@ function viewHealth(){
     </div>`;
 }
 
+function planSummary(p){
+  const m = p.market || {};
+  const wl = p.watchlist || [];
+  const avoid = p.stocksToAvoid || [];
+  return `
+    ${p.noHighQualitySetup ? `<div class="banner warn" style="margin-bottom:14px"><span class="glyph">!</span>
+      <div><strong>No high-quality setup today.</strong> The analyst says to stay out rather than force a trade.
+      The names below are to watch, not to trade.</div></div>` : ""}
+    ${(p.warnings || []).map(w => `<div class="banner warn" style="margin-bottom:14px"><span class="glyph">!</span><div>${esc(w)}</div></div>`).join("")}
+
+    <div class="grid g2" style="margin-bottom:16px">
+      <div class="card">
+        <div class="card-head"><span class="card-title">Market</span>
+          ${m.bias ? `<span class="chip ${m.bias==="BULLISH"?"good":m.bias==="BEARISH"?"bad":"warn"}" style="margin-left:auto">${esc(m.strength || m.bias)}</span>` : ""}</div>
+        <p class="muted">${esc(m.read || "—")}</p>
+        ${(m.strongestSectors||[]).length ? `<p class="dim" style="margin-top:8px;font-size:12px">Strongest: ${esc(m.strongestSectors.join(", "))} · Weakest: ${esc((m.weakestSectors||[]).join(", "))}</p>` : ""}
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">Best long / best short</span></div>
+        <dl class="kv">
+          <dt>Best long</dt><dd style="font-family:var(--ui);text-align:right;max-width:40ch;color:var(--ink-2)">${esc(p.bestLong || "none")}</dd>
+          <dt>Best short</dt><dd style="font-family:var(--ui);text-align:right;max-width:40ch;color:var(--ink-2)">${esc(p.bestShort || "none")}</dd>
+        </dl>
+        ${p.selfCritique ? `<p class="dim" style="margin-top:10px;font-size:12px"><strong>Self-critique:</strong> ${esc(p.selfCritique)}</p>` : ""}
+      </div>
+    </div>
+
+    ${wl.length ? `<div class="section-head"><h2>Watchlist</h2><span class="eyebrow">Part 12 · as the analyst ranked it</span></div>
+      <div class="table-wrap" style="margin-bottom:18px"><table style="min-width:720px">
+        <thead><tr><th>#</th><th>Stock</th><th>Bias</th><th>Setup</th><th>Score</th><th>Key level</th><th>Note</th></tr></thead>
+        <tbody>${wl.map(w => `<tr>
+          <td class="rank">${w.rank ?? "—"}</td>
+          <td><strong>${esc(w.symbol)}</strong>${(p.top3||[]).includes(w.symbol) ? ` <span class="chip good">top 3</span>` : ""}
+            ${(w.warnings||[]).length ? `<br><span class="chip warn" style="margin-top:4px">${esc(w.warnings[0])}</span>` : ""}</td>
+          <td><span class="chip ${w.bias==="LONG"?"good":w.bias==="SHORT"?"bad":""}">${esc(w.bias)}</span></td>
+          <td class="muted">${esc(w.setup)}</td>
+          <td class="n">${w.score ?? "—"}</td>
+          <td class="n">${w.keyLevel != null ? rupee(w.keyLevel) : "—"}</td>
+          <td class="muted" style="white-space:normal;min-width:240px">${esc(w.note)}</td></tr>`).join("")}</tbody>
+      </table></div>` : ""}
+
+    <div class="section-head"><h2>Trade plans</h2><span class="eyebrow">Part 13 · top ${(p.setups||[]).length}</span></div>
+
+    ${avoid.length ? `` : ""}`;
+}
+
 function viewAll(){
   const api = state.api;
   const rows = state.source === "api" ? api.rows : SCAN.setups.map(rowFromScan);
@@ -1896,20 +1927,7 @@ function viewAll(){
       <div><strong>Request failed — ${esc(api.error)}</strong><div style="margin-top:6px;color:var(--ink-2)">${apiHint()}</div></div>
     </div>` : ""}
 
-    ${state.source === "api" && api.plan && (api.plan.droppedSetups||[]).length ? `<div class="banner bad" style="margin-bottom:16px">
-      <span class="glyph">✗</span>
-      <div><strong>${api.plan.droppedSetups.length} setup(s) from the analyst were rejected and are not shown.</strong>
-      <ul class="list" style="margin-top:8px">${api.plan.droppedSetups.map(d =>
-        `<li><strong>${esc(d.symbol)}</strong> — ${esc(d.reason)}</li>`).join("")}</ul></div>
-    </div>` : ""}
-
-    ${state.source === "api" && api.status === "ok" && api.plan ? `<div class="banner" style="margin-bottom:16px">
-      <span class="glyph">○</span>
-      <div>Plan from brief <span class="num">${esc((api.plan.promptVersion || "rule engine"))}</span>
-      · analyst <span class="num">${esc(api.plan.analystModel || api.plan.analyst)}</span>.
-      Conditions marked <strong>req</strong> gate the entry; the live monitor evaluates them against
-      5-minute closes, VWAP, volume, index and sector once the session is open.</div>
-    </div>` : ""}
+    ${state.source === "api" && api.plan ? planSummary(api.plan) : ""}
 
     <div class="table-wrap"><table style="min-width:1320px">
       <thead><tr>
@@ -1920,19 +1938,23 @@ function viewAll(){
       <tbody>${body}</tbody>
     </table></div>
 
+    ${state.source === "api" && api.plan && (api.plan.stocksToAvoid||[]).length ? `<div class="section">
+      <div class="section-head"><h2>Stocks to avoid</h2><span class="eyebrow">Part 19</span></div>
+      <div class="card"><ul class="list">${api.plan.stocksToAvoid.map(a =>
+        `<li><strong>${esc(a.symbol)}</strong> — ${esc(a.reason)}</li>`).join("")}</ul>
+        ${(api.plan.noTradeConditions||[]).length ? `<hr class="rule"><div class="eyebrow" style="margin-bottom:6px">No-trade conditions</div>
+          <ul class="list">${api.plan.noTradeConditions.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}</div>
+    </div>` : ""}
+
     <div class="section">
-      <div class="section-head"><h2>What the checks column tests</h2></div>
+      <div class="section-head"><h2>What the checks column shows</h2></div>
       <div class="card">
-        <ul class="list">
-          <li>Stop sits on the correct side of entry for the stated bias</li>
-          <li>Every target lies beyond entry in the direction of the bias</li>
-          <li>Score falls within 0–100, and the factor breakdown sums to the stated total</li>
-          <li>Reported risk-reward matches the ratio recomputed from entry, stop and T1</li>
-          <li>Position value does not exceed the capital set on the Risk page</li>
-        </ul>
-        <p class="dim" style="margin-top:10px;font-size:12px">
-          Profit % and R:R in this table are always recomputed from entry, stop and targets.
-          Where a payload states its own R:R and the two disagree, both are shown.</p>
+        <p class="muted">Every setup the analyst wrote is shown — nothing is filtered out. The checks column only
+        points at things worth a second look: a stop on the wrong side of the entry, a target behind it, a symbol
+        with no exchange data (so it can't be monitored live), or a Part 18 position size larger than your capital,
+        which usually means a very tight stop.</p>
+        <p class="dim" style="margin-top:10px;font-size:12px">Risk-reward and position size are computed from the
+        analyst's own levels using the prompt's Part 18 formula. Neither is used to reject anything.</p>
       </div>
     </div>`;
 }
@@ -2031,7 +2053,7 @@ function viewAnalyst(){
     <div class="page-head">
       <div><h1>Analyst</h1><p class="sub">Run the framework in whichever assistant you already pay for, on verified numbers.</p></div>
       <div class="head-right">
-        ${d ? `<span class="chip good"><span class="glyph">✓</span> ${d.candidateCount} candidates</span>` : ""}
+        ${d ? `<span class="chip good"><span class="glyph">✓</span> ${d.universeCount} stocks</span>` : ""}
       </div>
     </div>
 
@@ -2051,8 +2073,8 @@ function viewAnalyst(){
             ${b.status==="loading" ? `<span class="spin"></span> Scanning…` : `<span class="glyph">↻</span> ${d ? "Regenerate" : "Generate brief"}`}
           </button>
           ${d ? `<p class="dim" style="margin-top:10px;font-size:12px">
-            Brief <span class="num">${esc(d.briefId)}</span> · ${d.candidateCount} candidates ·
-            ${d.screenedOutCount} screened out · ${(d.pasteText.length/1000).toFixed(1)}k characters ·
+            Brief <span class="num">${esc(d.briefId)}</span> · your prompt plus exchange data for ${d.universeCount} F&amp;O stocks ·
+            ${(d.pasteText.length/1000).toFixed(1)}k characters ·
             valid 18 hours</p>` : ""}
         </div>
       </div>
@@ -2167,7 +2189,7 @@ const VIEWS = { desk:viewDesk, all:viewAll, analyst:viewAnalyst, setups:viewSetu
 function render(){
   document.getElementById("main").innerHTML = VIEWS[state.view]();
   const nAn = document.getElementById("nc-analyst");
-  if (nAn) nAn.textContent = state.brief.data ? String(state.brief.data.candidateCount) : "—";
+  if (nAn) nAn.textContent = state.brief.data ? String(state.brief.data.universeCount) : "—";
   const nAll = document.getElementById("nc-all");
   if (nAll) nAll.textContent = state.source === "api" ? state.api.rows.length : SCAN.setups.length;
   document.querySelectorAll(".nav-item").forEach(b => {

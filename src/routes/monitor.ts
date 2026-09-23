@@ -50,7 +50,9 @@ export const monitorRoutes: FastifyPluginAsync = async (fastify) => {
     const snapshot = await marketSnapshot(market, previousCloses);
 
     const setups = [];
-    for (const setup of brief.plan.setups) {
+    // Only setups with exchange data and usable levels can be watched; the
+    // rest are still in the plan, just not monitorable.
+    for (const setup of brief.plan.setups.filter((s) => s.monitorable)) {
       setups.push(await evaluateSetup(market, setup, snapshot));
     }
 

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import type { AnalystInput } from './ai-analyst.service.js';
-import type { IntradayAnalysisResponse } from '../../schemas/analysis-response.schema.js';
+import type { Plan } from './plan-reader.js';
 
 /**
  * Holds a session's scan between issuing a brief and receiving the analyst's
@@ -21,11 +21,9 @@ export interface StoredBrief {
   createdAt: string;
   /** The scan, exactly as the brief was built from it. */
   input: AnalystInput;
-  /** The rule-engine baseline the analyst's answer is merged onto. */
-  base: IntradayAnalysisResponse;
   candidateCount: number;
   /** The accepted plan, once one has been produced from this brief. */
-  plan?: IntradayAnalysisResponse;
+  plan?: Plan;
   planAcceptedAt?: string;
 }
 
@@ -40,7 +38,7 @@ export class BriefStore {
     return path.resolve(process.cwd(), FILE);
   }
 
-  public static save(input: AnalystInput, base: IntradayAnalysisResponse): StoredBrief {
+  public static save(input: AnalystInput): StoredBrief {
     this.load();
     this.prune();
 
@@ -48,7 +46,6 @@ export class BriefStore {
       id: crypto.randomBytes(9).toString('base64url'),
       createdAt: new Date().toISOString(),
       input,
-      base,
       candidateCount: input.scoredCandidates.length,
     };
     this.briefs.set(brief.id, brief);
@@ -57,7 +54,7 @@ export class BriefStore {
   }
 
   /** Attaches the accepted plan, so the monitor has setups to watch. */
-  public static attachPlan(id: string, plan: IntradayAnalysisResponse): void {
+  public static attachPlan(id: string, plan: Plan): void {
     this.load();
     const brief = this.briefs.get(id);
     if (!brief) return;
