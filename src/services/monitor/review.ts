@@ -42,6 +42,7 @@ export async function reviewPlan(market: DhanMarketDataService, rec: PlanRecord)
     const closed = sessionClosed(sessionDate);
     const results: SetupReview[] = [];
     let anyBars = false;
+    let lastBar = '';
 
     for (const s of setups) {
       let candles: Awaited<ReturnType<DhanMarketDataService['getIntradayCandles']>> = [];
@@ -50,7 +51,11 @@ export async function reviewPlan(market: DhanMarketDataService, rec: PlanRecord)
       } catch (err: any) {
         logger.warn({ symbol: s.symbol, sessionDate, error: err?.message }, 'Review: intraday bars unavailable');
       }
-      if (candles.length) anyBars = true;
+      if (candles.length) {
+        anyBars = true;
+        const t = candles[candles.length - 1].timestamp;
+        if (t > lastBar) lastBar = t;
+      }
       results.push({
         symbol: s.symbol,
         bias: s.bias,
@@ -67,7 +72,18 @@ export async function reviewPlan(market: DhanMarketDataService, rec: PlanRecord)
       sessionDate = nextWeekday(sessionDate);
       continue;
     }
-    return { sessionDate, reviewedAt: new Date().toISOString(), final: closed, setups: results };
+    const dataThrough = lastBar
+      ? new Date(new Date(lastBar).getTime() + IST_MS).toISOString().slice(11, 16)
+      : null;
+    return {
+      sessionDate,
+      reviewedAt: new Date().toISOString(),
+      final: closed,
+      dataThrough,
+      // The last 5-minute bar of a full session starts at 15:25.
+      incomplete: closed && dataThrough !== null && dataThrough < '15:25',
+      setups: results,
+    };
   }
   throw new ReviewNotReadyError('No intraday data found for the five sessions after this plan.');
 }

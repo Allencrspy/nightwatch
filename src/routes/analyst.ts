@@ -204,6 +204,8 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
           acceptedAt: r.acceptedAt,
           sessionDate: r.review!.sessionDate,
           final: r.review!.final,
+          dataThrough: r.review!.dataThrough ?? null,
+          incomplete: Boolean(r.review!.incomplete),
           setups: r.review!.setups,
           summary: trackRecord([r]),
         })),

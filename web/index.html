@@ -418,6 +418,47 @@ span.cx-none{background:var(--line);color:var(--ink-3)}
 .cx-top{color:var(--warn);font-family:var(--mono);font-size:12px}
 .cx-lv{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:4px;line-height:1.45}
 .cx-legend{margin:12px 2px 0;font-size:12px}
+
+/* ---- live pages ---- */
+.empty{text-align:center;padding:36px 20px}
+.empty h3{margin:0 0 6px;font-size:17px}
+.empty .nav-item{display:inline-flex;width:auto}
+.big-n{font-family:var(--mono);font-size:22px;letter-spacing:-.01em}
+.pos{color:var(--accent)} .neg{color:var(--bad)}
+.sector-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 16px}
+.desk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.desk-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.desk-card.ready{border-color:var(--accent-edge);box-shadow:0 0 0 1px var(--accent-edge) inset}
+.desk-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.desk-top > div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.desk-sym{font-size:16px}
+.desk-nums{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.desk-nums div{display:flex;flex-direction:column;min-width:0}
+.desk-nums .k{font-size:10.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+.desk-nums .v{font-family:var(--mono);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.desk-nums .d{font-size:10.5px;color:var(--ink-3);font-family:var(--mono)}
+.desk-ready{margin:10px 0 6px;font-size:12.5px}
+.desk-conds{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.desk-conds li{display:grid;grid-template-columns:20px 1fr;gap:6px}
+.obs{display:block;font-size:11.5px;color:var(--ink-3);font-family:var(--mono)}
+.ci{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;font-size:11px;font-weight:700;flex:none}
+.ci.good{background:var(--accent-wash);color:var(--accent)}
+.ci.bad{background:var(--bad-wash);color:var(--bad)}
+.ci.unk{background:var(--line);color:var(--ink-3)}
+.switch-l{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);cursor:pointer}
+.sbars{display:flex;flex-direction:column;gap:7px}
+.sbar{display:grid;grid-template-columns:110px 1fr 64px;gap:10px;align-items:center;font-size:13px}
+.sbar .n{text-align:right;font-family:var(--mono);font-size:12px}
+.sbar-track{position:relative;height:8px;background:var(--line);border-radius:4px}
+.sbar-track i{position:absolute;top:0;bottom:0;border-radius:4px}
+.sbar-track i.up{background:var(--accent)} .sbar-track i.dn{background:var(--bad)}
+.run-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:6px;margin-top:12px;font-size:13px;color:var(--ink-2)}
+.field .input{max-width:260px}
+.health-row{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.health-row:last-child{border-bottom:none}
+.health-row .ci{margin-top:2px}
+@media (max-width:1000px){.desk-nums{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
 <style>
   html,body{height:100%}
@@ -441,352 +482,80 @@ span.cx-none{background:var(--line);color:var(--ink-3)}
     </div>
 
     <div class="nav-group">
-      <div class="nav-label">Scan</div>
-      <button class="nav-item" data-view="desk" aria-current="page">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 4 5-8 4 5"/></svg>
-        Desk
+      <div class="nav-label">Tonight</div>
+      <button class="nav-item" data-view="analyst">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5c0 4.7-3.8 8.5-8.5 8.5a8.4 8.4 0 0 1-3.8-.9L4 20.5l1.4-4.2A8.5 8.5 0 0 1 12 3.5z"/></svg>
+        Analyst
       </button>
       <button class="nav-item" data-view="all">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17"/></svg>
-        All setups <span class="nav-count" id="nc-all">2</span>
+        All setups <span class="nav-count" id="nc-all">—</span>
       </button>
       <button class="nav-item" data-view="compare">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v16M16 4v16M3.5 8.5h9M11.5 15.5h9"/></svg>
         Compare <span class="nav-count" id="nc-compare">—</span>
       </button>
-      <button class="nav-item" data-view="analyst">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5c0 4.7-3.8 8.5-8.5 8.5a8.4 8.4 0 0 1-3.8-.9L4 20.5l1.4-4.2A8.5 8.5 0 0 1 12 3.5z"/></svg>
-        Analyst <span class="nav-count" id="nc-analyst">—</span>
-      </button>
-      <button class="nav-item" data-view="setups">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V7m5 13V4m5 16v-9m5 9V9"/></svg>
-        Setup detail <span class="nav-count" id="nc-setups">2</span>
-      </button>
       <button class="nav-item" data-view="market">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c4 4.5 4 12.5 0 17-4-4.5-4-12.5 0-17z"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V11M9.5 19.5V5M15 19.5v-6M20.5 19.5V8"/></svg>
         Market
-      </button>
-      <button class="nav-item" data-view="rejected">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6.5 6.5l11 11"/></svg>
-        Rejected <span class="nav-count" id="nc-rej">7</span>
       </button>
     </div>
 
     <div class="nav-group">
-      <div class="nav-label">Execution</div>
-      <button class="nav-item" data-view="connect">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 13.5l-2.5 2.5a3.5 3.5 0 0 1-5-5L4 8.5m11 2l2.5-2.5a3.5 3.5 0 0 0-5-5L10 5.5m-1 9.5l6-6"/></svg>
-        Connect <span class="nav-count" id="nc-conn">off</span>
+      <div class="nav-label">Session</div>
+      <button class="nav-item" data-view="desk">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 13.5l4-4 4 4 4-7 5 5"/></svg>
+        Live desk
       </button>
-      <button class="nav-item" data-view="risk">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7.5 3.2v5.1c0 4.4-3 7.5-7.5 8.7-4.5-1.2-7.5-4.3-7.5-8.7V6.7z"/></svg>
-        Risk &amp; sizing
-      </button>
-      <button class="nav-item" data-view="health">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2.5-6 4 13 2.5-7h5"/></svg>
-        Data health <span class="nav-count flag" id="nc-health">6</span>
-      </button>
-      <button class="nav-item" data-view="logs">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14v15H5zM8 9h8M8 12.5h8M8 16h5"/></svg>
-        Logs <span class="nav-count" id="nc-logs">0</span>
+      <button class="nav-item" data-view="track">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h16M8 15l3-3 3 2 5-6"/></svg>
+        Track record
       </button>
     </div>
 
-    <div class="side-foot">
-      <div>Scan of 21 Sep 2026, 21:58 IST</div>
-      <div class="dim" style="margin-top:2px">For the 22 Sep session</div>
+    <div class="nav-group">
+      <div class="nav-label">Setup</div>
+      <button class="nav-item" data-view="connect">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 14.5l5-5M8 11l-2.5 2.5a3.5 3.5 0 0 0 5 5L13 16M11 8l2.5-2.5a3.5 3.5 0 0 1 5 5L16 13"/></svg>
+        Connect <span class="nav-count" id="nc-connect">—</span>
+      </button>
+      <button class="nav-item" data-view="risk">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7.5 3v5.5c0 4.2-3.2 7.4-7.5 8.5-4.3-1.1-7.5-4.3-7.5-8.5V6.5z"/></svg>
+        Risk &amp; sizing
+      </button>
+      <button class="nav-item" data-view="health">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12h4l2.5-6 4 12 2.5-6h4"/></svg>
+        Data health
+      </button>
+      <button class="nav-item" data-view="logs">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5h12v15H6zM9 9h6M9 12.5h6M9 16h4"/></svg>
+        Logs <span class="nav-count" id="nc-logs">—</span>
+      </button>
     </div>
+
+    <div class="side-foot" id="side-foot"></div>
   </nav>
 
   <main class="main" id="main"></main>
 </div>
 
 <script>
-/* =========================================================================
-   SCAN — one night's output. This object is the entire contract with the
-   data/analysis side: swap it, the app re-renders. Nothing below reads
-   anything else. Values marked verified:false were flagged UNVERIFIED by
-   the scan and are never silently rounded into confidence.
-   ========================================================================= */
-const SCAN = {
-  meta: {
-    forSession: "22 September 2026",
-    analysedAt: "21 September 2026, ~21:58 IST",
-    lastSession: "Monday, 21 September 2026",
-    dataStatus: "EOD/closing data, supplemented by delayed market-data pages and published reports.",
-    confidence: "Moderate",
-    note: "Tomorrow's opening/pre-open/VWAP/intraday data was not used in the setup ranking."
-  },
-
-  market: {
-    regime: "Range-bound / mildly bullish recovery",
-    regimeNote: "Not a strong bullish trend.",
-    fip: [
-      { lab:"Fact", cls:"fact", text:"Nifty gained 0.29%, closed above 23,400 and has risen for four sessions." },
-      { lab:"Fact", cls:"fact", text:"Broader-market participation did not strongly confirm the move, and the index remains in the context of a six-week decline." },
-      { lab:"Interpretation", cls:"", text:"Buyers are attempting a recovery, but this has not yet become a confirmed broad-market uptrend." }
-    ],
-    strategy: [
-      "Relative-strength longs",
-      "Breakouts only after confirmation",
-      "Stocks from strong sectors",
-      "Avoid aggressive shorts unless the individual stock is exceptionally weak",
-      "Avoid chasing gaps"
-    ],
-    indices: [
-      { name:"NIFTY 50", prevClose:23346.40, open:23330.20, high:23466.80, low:23314.80, close:23414.30, changePct:0.29, gapPct:-0.07,
-        candle:"Small bullish recovery candle",
-        support:["23,300–23,315","23,100–23,000"], resistance:["23,465–23,500","23,600"] },
-      { name:"BANK NIFTY", prevClose:56358.70, open:56361.90, high:56668.20, low:56269.55, close:56470.65, changePct:0.20,
-        advDec:"6 up / 8 down",
-        support:["56,270","56,000"], resistance:["56,670","57,000–57,300"] }
-    ],
-    vix: { value:11.24, changePct:-1.32, read:"Low-volatility environment — not every breakout should be expected to produce a large directional move." }
-  },
-
-  sectors: {
-    strong: [
-      { name:"Pharma", pct:1.16, exact:true },
-      { name:"Realty", pct:1.14, exact:true },
-      { name:"FMCG", pct:1.0, exact:false },
-      { name:"Consumer Durables", pct:1.0, exact:false },
-      { name:"Defence", pct:0.8, exact:false }
-    ],
-    weak: [
-      { name:"Metal", note:"Negative" },
-      { name:"IT", note:"Negative / weak" },
-      { name:"Infrastructure", note:"Negative" },
-      { name:"PSU Banks", note:"Negative" },
-      { name:"Telecom", note:"Weak through Airtel" }
-    ],
-    observation: "Pharma was strong while IT and Metals were weak."
-  },
-
-  movers: [
-    { sym:"PATANJALI", pct:7.96, exact:true },
-    { sym:"HCLTECH", pct:2.75, exact:false },
-    { sym:"SUNPHARMA", pct:1.72, exact:true },
-    { sym:"BHARTIARTL", pct:-3.33, exact:true },
-    { sym:"ADANIPORTS", pct:-2.02, exact:true },
-    { sym:"BAJFINANCE", pct:-1.83, exact:true }
-  ],
-
-  setups: [
-    {
-      id:"sunpharma", rank:1, sym:"SUNPHARMA", name:"Sun Pharmaceutical",
-      bias:"LONG", type:"Breakout continuation", tier:"High", reportedScore:82,
-      sector:"Pharma", mainRisk:"Failed breakout / gap-up",
-      keyLevel:1891.50, keyLevelNote:"Today's high, and therefore the immediate breakout trigger.",
-      entry:[1893,1900], stop:1860,
-      stopReason:"Sits beneath the immediate breakout-support region and below the 1,861.6 support level in the technical data.",
-      targets:[{label:"T1",lo:1950,hi:1950},{label:"T2",lo:1985,hi:2000}],
-      sampleEntry:1895,
-      facts:{ close:1868.90, closeExact:false, high:1891.50, low:1832.20,
-              volume:"25.3 lakh", avgVolume:"15.6 lakh", volRatio:1.62,
-              week52High:2046.90, atr:31.40, atrPct:1.71,
-              delivery:72.3, deliveryAvg:65.8 },
-      why:"Strong sector, strong volume, close near the day's upper zone, meaningful resistance at 1,891.50, and room toward 2,000.",
-      invalidation:"Sustained failure below ₹1,860, or a failed breakout with VWAP loss.",
-      score:[
-        { name:"Price structure", raw:4.5, weighted:13.5, max:15, verified:true },
-        { name:"Volume quality", raw:4.5, weighted:13.5, max:15, verified:true },
-        { name:"Relative strength", raw:4.0, weighted:12, max:15, verified:true },
-        { name:"Breakout quality", raw:4.0, weighted:12, max:15, verified:true },
-        { name:"Multi-timeframe", raw:3.5, weighted:7, max:10, verified:false, why:"1H and 15m structure UNVERIFIED" },
-        { name:"Sector confirmation", raw:5.0, weighted:10, max:10, verified:true },
-        { name:"R:R / room", raw:4.0, weighted:8, max:10, verified:true },
-        { name:"Liquidity", raw:5.0, weighted:5, max:5, verified:true },
-        { name:"Catalyst / news", raw:2.0, weighted:2, max:5, verified:false, why:"No verified fresh catalyst found" }
-      ],
-      conditions:[
-        { text:"5-minute candle closes above ₹1,891.50", mandatory:true, src:"price" },
-        { text:"Breakout candle volume clearly above recent 5-minute bars", mandatory:true, src:"volume" },
-        { text:"Price remains above VWAP", mandatory:true, src:"vwap" },
-        { text:"Pharma sector remains positive", mandatory:true, src:"sector" },
-        { text:"Nifty holding above ~23,400", mandatory:false, src:"index", why:"Scan wording: “prefer”" },
-        { text:"Breakout level is retested and holds", mandatory:false, src:"retest", why:"Preferred, not mandatory" }
-      ],
-      gapPlan:[
-        { lo:-0.5, hi:0.5, verdict:"green", action:"Normal — wait for the ₹1,891.50 breakout." },
-        { lo:0.5, hi:2, verdict:"yellow", action:"Still tradable, but wait for breakout and retest." },
-        { lo:2, hi:3, verdict:"yellow", action:"Do not chase. Recalculate R:R before anything else." },
-        { lo:3, hi:99, verdict:"red", action:"Cancel the original breakout plan unless a new structure develops." },
-        { lo:-1, hi:-0.5, verdict:"green", action:"Setup remains possible." },
-        { lo:-99, hi:-1, verdict:"red", action:"Reassess support and R:R. A large gap below ₹1,860 cancels the setup." }
-      ],
-      lights:{
-        green:["Gap within ±0.5%","Price near ₹1,870–1,890","Pharma positive","Nifty above 23,400","No adverse company news","₹1,891.50 still intact","R:R at least 1.5","No excessive gap"],
-        yellow:["Gap +0.5% to +2%","Nifty around 23,350–23,400","Pharma flat","Above ₹1,891 but already extended","Breakout without volume"],
-        red:["Gap above 3%","Opens far above the target zone","Breakout immediately fails","Price loses ₹1,860","Pharma sharply negative","Nifty breaks 23,300 with broad selling"]
-      },
-      mtf:[["Daily","Improving / recovery",true],["1H","Unverified",false],["15m","Unverified EOD structure",false],["5m","Tomorrow's execution only",null],["Overall","Partially aligned",null]],
-      catalyst:{ verified:false, text:"No verified fresh primary catalyst explaining today's move." },
-      critique:[
-        ["Strongest argument against","Today's move may be sector-wide defensive buying rather than the start of stock-specific momentum."],
-        ["Likely failure","Breakout above ₹1,891.50 followed by immediate rejection."],
-        ["Market dependency","Moderate"],
-        ["Sector dependency","High"],
-        ["Extension","Moderate — still below the 52-week high"],
-        ["Gap risk","High if it opens more than 2% up"]
-      ],
-      failRule:"₹1,892 → ₹1,900 → falls back below ₹1,891.50 → 5-minute close below the level → VWAP lost. That is a failed breakout. Do not immediately short — a short needs its own structure: a breakdown of ₹1,860 with volume expansion, price below VWAP, Nifty weakness and pharma weakness."
-    },
-    {
-      id:"hcltech", rank:2, sym:"HCLTECH", name:"HCL Technologies",
-      bias:"LONG", type:"Relative-strength breakout", tier:"Watchlist", reportedScore:76,
-      sector:"IT", mainRisk:"IT sector weakness",
-      keyLevel:1290, keyLevelNote:"Top of a 1,282 / 1,284.85 / 1,290 resistance cluster.",
-      entry:[1291,1295], stop:1265,
-      stopReason:"Below the breakout zone and the prior resistance shelf that must now hold as support.",
-      targets:[{label:"T1",lo:1335,hi:1335},{label:"T2",lo:1360,hi:1360}],
-      sampleEntry:1292,
-      facts:{ close:1282, closeExact:false, high:1284.60, low:null,
-              volume:"2.15–2.75 million", avgVolume:"below average in some datasets", volRatio:null,
-              week52High:null, atr:null, atrPct:null, delivery:null, deliveryAvg:null },
-      why:"Held relative strength despite a weak IT sector, with a clearly identifiable prior resistance zone.",
-      invalidation:"Failed breakout and loss of ₹1,265 / VWAP.",
-      score:[
-        { name:"Price structure", raw:4.0, weighted:12, max:15, verified:true },
-        { name:"Volume quality", raw:3.0, weighted:9, max:15, verified:false, why:"Volume differs 2.15–2.75m across sources" },
-        { name:"Relative strength", raw:4.33, weighted:13, max:15, verified:true },
-        { name:"Breakout quality", raw:4.0, weighted:12, max:15, verified:true },
-        { name:"Multi-timeframe", raw:3.5, weighted:7, max:10, verified:false, why:"1H and 15m structure UNVERIFIED" },
-        { name:"Sector confirmation", raw:2.0, weighted:4, max:10, verified:true },
-        { name:"R:R / room", raw:4.0, weighted:8, max:10, verified:true },
-        { name:"Liquidity", raw:5.0, weighted:5, max:5, verified:true },
-        { name:"Catalyst / news", raw:2.0, weighted:2, max:5, verified:false, why:"No verified fresh catalyst found" }
-      ],
-      conditions:[
-        { text:"5-minute close above ₹1,290", mandatory:true, src:"price" },
-        { text:"Volume expansion on the breakout candle", mandatory:true, src:"volume" },
-        { text:"Price above VWAP", mandatory:true, src:"vwap" },
-        { text:"IT sector not materially deteriorating", mandatory:true, src:"sector" },
-        { text:"Nifty holding above 23,400", mandatory:false, src:"index" }
-      ],
-      gapPlan:[],
-      lights:{ green:[], yellow:[], red:[] },
-      mtf:[["Daily","Recovery attempt",true],["1H","Unverified",false],["15m","Unverified EOD structure",false],["5m","Tomorrow's execution only",null],["Overall","Partially aligned",null]],
-      catalyst:{ verified:false, text:"No strong company-specific catalyst verified." },
-      critique:[
-        ["Strongest argument against","IT itself was weak today. The relative strength is real but unproven going forward."],
-        ["Market dependency","Moderate"],
-        ["Sector dependency","High"],
-        ["Extension","Moderate"]
-      ],
-      failRule:null
-    }
-  ],
-
-  watchOnly: [
-    { sym:"PATANJALI", name:"Patanjali Foods", bias:"LONG", type:"Breakout continuation",
-      score:73, tier:"Watchlist only", keyLevel:"₹400–400.45", mainRisk:"Excessive extension",
-      entry:"₹401–403", stop:"₹388–390", targets:"₹420, then ₹435–440",
-      catalyst:{ verified:true, text:"Management's FY27 growth outlook, including expected food-business growth and ₹700–800 crore projected free cash flow." },
-      note:"Up ~8% today on top of a ~15% four-session rally. The catalyst is real, but momentum plus a large prior move plus gap risk keep it out of the top tier. The first target's R:R is not attractive if the stop is kept structurally wide." }
-  ],
-
-  rejected: [
-    { sym:"BHARTIARTL", name:"Bharti Airtel", bias:"SHORT candidate", verdict:"Rejected",
-      reason:"Support too close. Technical commentary puts ₹1,800–1,830 as a buying/support zone, and the stock closed at ₹1,830.20 — shorting there is poor risk/reward.",
-      detail:"Fell 3.33% while Nifty gained, on volume of roughly 9.55–9.72 million, and underperformed the market significantly.",
-      conditional:"Only reconsider below ₹1,775: a 5-minute close below the level, volume expansion, price below VWAP, Nifty weakening and telecom still weak. Structure thereafter would be entry ₹1,770–1,775, stop ₹1,805, T1 ₹1,740, T2 ₹1,700." }
-  ],
-
-  avoid: [
-    ["Welspun Corp","Excessively extended and near its 52-week high despite a strong catalyst — a ₹2,000 crore Saudi Aramco-related order through its associate."],
-    ["Patanjali Foods","Very strong but extended. Gap and chasing risk."],
-    ["Bharti Airtel","Short has major support around ₹1,800–1,830."],
-    ["Adani Ports","Weakness exists, but the room/support structure is not clean enough."],
-    ["Bajaj Finance","Down 1.83%, but no sufficiently strong breakdown structure verified."],
-    ["UltraTech Cement","Up 4.11%, but reported volume was about 157.9k against a 288.1k 20-day average in one snapshot — the size of the move alone doesn't make it a high-quality breakout."],
-    ["HCLTech","Watchlist only: IT sector weak and volume confirmation not ideal."]
-  ],
-
-  risk: {
-    perTradePct: 0.5,
-    maxDailyLossPct: 1,
-    maxConsecutiveLosses: 2,
-    maxPositions: "1–2",
-    maxTrades: 3,
-    notes:[
-      "After 2 consecutive failed setups: stop and reassess.",
-      "After the daily loss limit: no more trades.",
-      "Do not increase size because Sun Pharma scores 82 instead of HCLTech's 76."
-    ]
-  },
-
-  noTrade: [
-    "Nifty gaps more than 1% and the stock gaps similarly.",
-    "Sun Pharma opens 2–3% above the planned trigger.",
-    "Breakout occurs without volume.",
-    "Price immediately falls back below the breakout level.",
-    "VWAP contradicts the trade.",
-    "Nifty loses 23,300 with broad selling.",
-    "Pharma turns sharply negative.",
-    "R:R falls below 1.5:1 after the opening.",
-    "The stock reaches the target zone before entry.",
-    "The entry is moved upward simply because the stock is running."
-  ],
-
-  health: [
-    { level:"bad", title:"F&O positioning unavailable", body:"No consistent EOD dataset covering futures OI, OI change, basis, or strike-wise option-chain changes for the F&O universe. The scan assigned no OI signals rather than inventing them." },
-    { level:"bad", title:"Multi-timeframe structure unverified", body:"Synchronised 5m/15m/1h history was not available for either candidate, so 1H and 15m are UNVERIFIED for both. This alone caps the multi-timeframe factor at 7/10 and is the stated reason no setup reached 90+." },
-    { level:"warn", title:"Closing prices are approximate", body:"Sun Pharma's close is given as “approximately ₹1,868.90”. A settled closing price should be exact — approximation here indicates prices read from news and broker pages rather than a market feed." },
-    { level:"warn", title:"Volume disagrees across sources", body:"HCLTech volume spans 2.15–2.75 million depending on the snapshot — a 28% spread on a factor worth 15 points. ATR for HCLTech is also described as inconsistent." },
-    { level:"warn", title:"No live intraday feed connected", body:"Every entry condition depends on VWAP, 5-minute closes, per-bar volume, the live Nifty level and live sector indices. None are present in the nightly scan, so conditions cannot be evaluated until an intraday feed is attached." },
-    { level:"warn", title:"No validated historical edge", body:"The scan states plainly that there is insufficient labelled history to calculate a follow-through rate for this setup pattern, and assigns no probability. Scores are quality judgements, not win rates." }
-  ],
-
-  sources: ["Business Standard","Moneycontrol","HDFC Sky","Angel One","ET Now","Investing.com","IIFL"]
-};
-
 /* ========================= derived values ========================= */
 const fmt = (n, d=2) => n == null ? "—" : n.toLocaleString("en-IN",{minimumFractionDigits:d, maximumFractionDigits:d});
 const rupee = (n, d=2) => n == null ? "—" : "₹" + fmt(n, d);
 const pct = n => (n > 0 ? "+" : "") + n.toFixed(2) + "%";
 const mid = r => Array.isArray(r) ? (r[0] + r[1]) / 2 : r;
 
-function derive(s){
-  const entryMid = mid(s.entry);
-  const risk = entryMid - s.stop;
-  const computed = s.score.reduce((a,f) => a + f.weighted, 0);
-  const assessableMax = s.score.filter(f => f.verified).reduce((a,f) => a + f.max, 0);
-  const assessableGot = s.score.filter(f => f.verified).reduce((a,f) => a + f.weighted, 0);
-  const unknownPts = s.score.filter(f => !f.verified).reduce((a,f) => a + f.max, 0);
-  const tgts = s.targets.map(t => {
-    const tm = mid([t.lo, t.hi]);
-    return { ...t, mid: tm, reward: tm - entryMid, rr: (tm - entryMid) / risk, profitPct: ((tm - entryMid) / entryMid) * 100 };
-  });
-  return { entryMid, risk, riskPct: (risk/entryMid)*100, computed, assessableMax, assessableGot,
-           assessablePct: (assessableGot/assessableMax)*100, unknownPts,
-           mismatch: Math.abs(computed - s.reportedScore) > 0.01, tgts };
-}
-SCAN.setups.forEach(s => s.d = derive(s));
-
 /* ========================= state ========================= */
 const state = {
-  view: "desk",
-  phase: "tonight",
-  setupId: "sunpharma",
-  gap: 0,
+  view: "all",
   capital: 200000,
   simulate: false,
   logFilter: "all"
 };
 try { const c = localStorage.getItem("nw.capital"); if (c) state.capital = +c; } catch(e){}
 
-const PHASES = [
-  { id:"tonight", label:"Tonight" },
-  { id:"preopen", label:"Pre-open" },
-  { id:"live", label:"Live" },
-  { id:"close", label:"Post-close" }
-];
-
-/* simulated feed states, used only when the demo switch is on */
-const SIM = { price:true, volume:true, vwap:false, sector:true, index:true, retest:false };
-
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
-const cur = () => SCAN.setups.find(s => s.id === state.setupId) || SCAN.setups[0];
 
 /* =========================================================================
    Setup table — one normalised row shape, two sources.
@@ -795,7 +564,7 @@ const cur = () => SCAN.setups.find(s => s.id === state.setupId) || SCAN.setups[0
    mismatch is flagged.
    ========================================================================= */
 
-state.source = "scan";
+state.source = "api";
 state.api = { status:"idle", rows:[], meta:null, plan:null, error:null, at:null };
 state.auth = { status:"unknown", data:null, busy:false, error:null };
 try { const u = localStorage.getItem("nw.apiBase"); if (u) state.apiBase = u; } catch(e){}
@@ -1036,23 +805,6 @@ function finish(r){
   return r;
 }
 
-function rowFromScan(s){
-  const d = s.d;
-  return finish({
-    src:"scan", id:s.id, rank:s.rank, sym:s.sym, bias:s.bias, setupType:s.type,
-    entryLabel:`${rupee(s.entry[0],0)}–${fmt(s.entry[1],0)}`,
-    entryVal:d.entryMid,
-    entryWorst:s.bias === "LONG" ? s.entry[1] : s.entry[0],
-    conditions:s.conditions.map(c => ({ text:c.text, req:c.mandatory })),
-    invalidation:s.invalidation,
-    stop:s.stop,
-    targets:s.targets.map((t,i) => ({ label:t.label, val:mid([t.lo,t.hi]),
-      label2:t.lo === t.hi ? rupee(t.lo,0) : `${rupee(t.lo,0)}–${fmt(t.hi,0)}` })),
-    score:d.computed, breakdownSum:d.computed, rrReported:null,
-    posValue:null, tier:s.tier
-  });
-}
-
 /* Maps one setup from the analysis response (framework shape). */
 const CHECK_LABEL = {
   price_close_above: "price", price_close_below: "price",
@@ -1101,7 +853,7 @@ async function generateBrief(){
   try {
     const data = await api("/api/v1/analyst/brief", {
       method:"POST",
-      body:{ capital:state.capital, riskPercent:SCAN.risk.perTradePct, maxTrades:SCAN.risk.maxTrades,
+      body:{ capital:state.settings.capital, riskPercent:state.settings.riskPercent, maxTrades:state.settings.maxTrades,
              universe: state.brief.universe }
     });
     state.brief.data = data;
@@ -1151,7 +903,7 @@ async function refreshFromApi(){
   try {
     const data = await api("/api/v1/intraday-analysis", {
       method:"POST",
-      body:{ capital:state.capital, riskPercent:SCAN.risk.perTradePct, maxTrades:SCAN.risk.maxTrades }
+      body:{ capital:state.settings.capital, riskPercent:state.settings.riskPercent, maxTrades:state.settings.maxTrades }
     });
     if (!Array.isArray(data.setups)) throw new Error("Response carried no setups array.");
 
@@ -1193,742 +945,395 @@ function apiHint(){
     <span class="num">POST /api/v1/intraday-analysis</span>.`;
 }
 
-/* ========================= components ========================= */
+/* ========================= shared helpers ========================= */
+const IST_MS = 5.5 * 3600 * 1000;
+const istNow = () => new Date(Date.now() + IST_MS);
+const istDate = () => istNow().toISOString().slice(0, 10);
+const istMinutes = () => { const d = istNow(); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
+function nextWeekday(date){
+  const d = new Date(`${date}T12:00:00Z`);
+  do d.setUTCDate(d.getUTCDate() + 1); while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
+  return d.toISOString().slice(0, 10);
+}
+const niceDate = iso => iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-IN", { weekday:"short", day:"numeric", month:"short" }) : "—";
+const hhmm = ts => ts ? new Date(ts).toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", hour12:false, timeZone:"Asia/Kolkata" }) : "—";
+const signed = (v, d=2) => v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(d)}`;
+const rClass = v => v == null ? "dim" : v > 0 ? "pos" : v < 0 ? "neg" : "";
 
-function scoreBars(s){
-  const max = Math.max(...s.score.map(f => f.max));
-  return `<div class="bars">${s.score.map(f => {
-    const w = (f.weighted / max) * 100, tw = (f.max / max) * 100;
-    return `<div class="bar-row">
-      <div class="bar-name">
-        <span>${esc(f.name)}</span>
-        ${f.verified ? "" : `<span class="chip unk" title="${esc(f.why||"")}">unknown</span>`}
-      </div>
-      <div class="bar-track" style="width:${tw.toFixed(1)}%" role="img"
-           aria-label="${esc(f.name)}: ${f.weighted} of ${f.max}${f.verified?"":", unverified"}">
-        <div class="bar-fill ${f.verified?"":"unk"}" style="width:${(w/tw*100).toFixed(1)}%"></div>
-      </div>
-      <div class="bar-val ${f.verified?"":"unk"}">${f.weighted}/${f.max}</div>
-    </div>`;
-  }).join("")}</div>`;
+function marketPhase(){
+  const day = istNow().getUTCDay(), m = istMinutes();
+  if (day === 0 || day === 6) return { id:"closed", label:"Weekend — market closed" };
+  if (m < 9 * 60) return { id:"pre", label:"Before pre-open" };
+  if (m < 9 * 60 + 15) return { id:"preopen", label:"Pre-open session" };
+  if (m < 15 * 60 + 30) return { id:"live", label:"Market open" };
+  return { id:"post", label:"Market closed for the day" };
 }
 
-/* Vertical price ladder. Bands scale with the card; type stays at CSS sizes.
-   Labels are decluttered downward so near-identical levels never overlap. */
-function ladder(s){
-  const d = s.d;
-  const lo = Math.min(s.stop, s.facts.low ?? s.stop, s.facts.close) * 0.996;
-  const hi = Math.max(...s.targets.map(t => t.hi)) * 1.004;
-  const H = 306, pad = 13;
-  const y = v => pad + (hi - v) / (hi - lo) * (H - pad * 2);
-  const t1 = d.tgts[0], t2 = d.tgts[d.tgts.length - 1];
+const STATUS = {
+  NOT_TRIGGERED: { label:"Not triggered", cls:"" },
+  OPEN:          { label:"In trade", cls:"warn" },
+  STOPPED:       { label:"Stopped", cls:"bad" },
+  T1_THEN_STOP:  { label:"T1, then stopped", cls:"warn" },
+  T1_HIT:        { label:"T1 hit", cls:"good" },
+  T2_HIT:        { label:"T2 hit", cls:"good" },
+  CLOSED_AT_EOD: { label:"Closed at 15:30", cls:"" },
+  NO_DATA:       { label:"No data", cls:"" }
+};
+const statusChip = o => {
+  const s = STATUS[o && o.status] || { label:"—", cls:"" };
+  return `<span class="chip ${s.cls}">${s.label}${o && o.rMultiple != null ? ` · ${signed(o.rMultiple)}R` : ""}</span>`;
+};
 
-  const bands = [
-    { cls:"risk", a:s.stop,     b:d.entryMid },
-    { cls:"r1",   a:d.entryMid, b:t1.mid },
-    { cls:"r2",   a:t1.mid,     b:t2.mid }
-  ].map(b => `<div class="lad-band ${b.cls}" style="top:${y(Math.max(b.a,b.b)).toFixed(1)}px;
-      height:${Math.abs(y(b.a) - y(b.b)).toFixed(1)}px"></div>`).join("");
+function emptyState(title, body, action){
+  return `<div class="card empty"><h3>${title}</h3><p class="muted">${body}</p>${action || ""}</div>`;
+}
+const noPlan = () => emptyState("No plan yet",
+  "Generate a brief on the Analyst page, run it in ChatGPT, and upload the reply.",
+  `<button class="btn primary nav-item" data-view="analyst" style="margin-top:12px">Go to Analyst</button>`);
 
-  const entryBand = `<div class="lad-entry" style="top:${y(s.entry[1]).toFixed(1)}px;
-      height:${Math.max(5, Math.abs(y(s.entry[0]) - y(s.entry[1]))).toFixed(1)}px"></div>`;
+/* ========================= settings ========================= */
+state.settings = { capital:200000, riskPercent:0.5, maxTrades:3 };
+try {
+  const s = JSON.parse(localStorage.getItem("nw.settings") || "null");
+  if (s) Object.assign(state.settings, s);
+  else { const c = localStorage.getItem("nw.capital"); if (c) state.settings.capital = +c; }
+} catch(e){}
+Object.defineProperty(state, "capital", { get(){ return state.settings.capital; }, set(v){ state.settings.capital = v; } });
+function saveSettings(){ try { localStorage.setItem("nw.settings", JSON.stringify(state.settings)); } catch(e){} }
 
-  const levels = [
-    { role:"T2",      px:rupee(t2.mid,0),  note:`+${d.tgts[1].profitPct.toFixed(1)}%`, v:t2.mid,        tone:"acc" },
-    { role:"T1",      px:rupee(t1.mid,0),  note:`+${d.tgts[0].profitPct.toFixed(1)}%`, v:t1.mid,        tone:"acc" },
-    { role:"Entry",   px:`${rupee(s.entry[0],0)}–${fmt(s.entry[1],0)}`, note:"",       v:d.entryMid,    tone:"acc" },
-    { role:"Trigger", px:rupee(s.keyLevel),note:"5-min close above",    v:s.keyLevel,  tone:"acc dash" },
-    { role:"Close",   px:rupee(s.facts.close), note:s.facts.closeExact ? "" : "approx", v:s.facts.close, tone:"ink" },
-    { role:"Stop",    px:rupee(s.stop,0),  note:`−${d.riskPct.toFixed(2)}%`,           v:s.stop,        tone:"bad" }
-  ].map(l => ({ ...l, y: y(l.v) }));
+/* ========================= live desk ========================= */
+state.monitor = { status:"idle", data:null, error:null, auto:true, at:null };
+let monitorTimer = null;
 
-  const MIN = 19;
-  const ordered = [...levels].sort((a,b) => a.y - b.y);
-  let prev = -Infinity;
-  ordered.forEach(l => { l.ly = Math.max(l.y, prev + MIN); prev = l.ly; });
-  const overflow = ordered[ordered.length - 1].ly - (H - 10);
-  if (overflow > 0) ordered.forEach(l => { l.ly -= overflow; });
-
-  const marks = ordered.map(l => `
-    <div class="lad-tick ${l.tone}" style="top:${l.y.toFixed(1)}px"></div>
-    <div class="lad-lab ${l.tone}" style="top:${l.ly.toFixed(1)}px">
-      <span class="role">${esc(l.role)}</span>
-      <span class="px">${l.px}</span>
-      ${l.note ? `<span class="note">${esc(l.note)}</span>` : ""}
-    </div>`).join("");
-
-  return `<div class="ladder" role="img"
-    aria-label="Price ladder for ${esc(s.sym)}: trigger ${s.keyLevel}, entry ${s.entry[0]} to ${s.entry[1]}, stop ${s.stop}, targets ${t1.mid} and ${t2.mid}">
-    ${bands}${entryBand}${marks}
-  </div>`;
+async function runMonitor(){
+  if (state.monitor.status === "loading") return;
+  state.monitor.status = "loading"; state.monitor.error = null;
+  if (state.view === "desk") render();
+  try {
+    const briefId = state.api.plan && state.api.plan.briefId;
+    state.monitor.data = await api(`/api/v1/monitor${briefId ? `?briefId=${encodeURIComponent(briefId)}` : ""}`);
+    state.monitor.status = "ok";
+    state.monitor.at = new Date();
+    log("ok", "monitor evaluated", { setups: state.monitor.data.setups.length,
+      valid: state.monitor.data.setups.filter(s => s.entryValid).length });
+  } catch (err){
+    state.monitor.status = "error"; state.monitor.error = err.message;
+  }
+  if (state.view === "desk") render();
 }
 
-function condList(s, evaluated){
-  const rows = s.conditions.map(c => {
-    let cls = "pend", mark = "○", mcls = "m-unk", chip = "";
-    if (evaluated){
-      const met = SIM[c.src];
-      cls = met ? "met" : "unmet";
-      mark = met ? "✓" : "✗";
-      mcls = met ? "m-ok" : "m-no";
-      chip = met ? `<span class="chip good">met</span>` : `<span class="chip ${c.mandatory?"bad":"unk"}">${c.mandatory?"not met":"absent"}</span>`;
-    } else {
-      chip = `<span class="chip unk">awaiting feed</span>`;
-    }
-    return `<div class="check ${cls}">
-      <div class="check-mark ${mcls}" aria-hidden="true">${mark}</div>
-      <div class="check-text">${esc(c.text)}
-        <span class="why">${c.mandatory ? "Required" : "Preferred"}${c.why ? " · " + esc(c.why) : ""}</span></div>
-      <div>${chip}</div>
-    </div>`;
-  }).join("");
-
-  const man = s.conditions.filter(c => c.mandatory);
-  const metMan = evaluated ? man.filter(c => SIM[c.src]).length : 0;
-  const ready = evaluated && metMan === man.length;
-  const tally = evaluated
-    ? `<div class="tally">
-         <span class="num">${metMan}/${man.length}</span>
-         <span class="muted">required conditions met</span>
-         <span style="margin-left:auto">${ready
-            ? `<span class="chip good"><span class="glyph">✓</span> Entry valid</span>`
-            : `<span class="chip bad"><span class="glyph">✗</span> No entry</span>`}</span>
-       </div>`
-    : `<div class="tally"><span class="muted">Conditions evaluate when an intraday feed supplies VWAP, 5-minute closes, per-bar volume and live index levels.</span></div>`;
-
-  return `<div class="checks">${rows}</div>${tally}`;
+function scheduleMonitor(){
+  clearInterval(monitorTimer);
+  monitorTimer = null;
+  if (state.view !== "desk" || !state.monitor.auto || !state.api.plan) return;
+  const pc = state.api.plan.context;
+  if (pc && nextWeekday(pc.dataDate) !== istDate()) return;
+  if (!["preopen","live"].includes(marketPhase().id)) return;
+  monitorTimer = setInterval(runMonitor, 60_000);
 }
 
-function gapVerdict(s, g){
-  for (const r of s.gapPlan) if (g >= r.lo && g <= r.hi) return r;
-  return null;
-}
-
-function setupRow(s){
-  const d = s.d;
-  return `<tr class="row-btn" data-setup="${s.id}" tabindex="0">
-    <td class="rank">${s.rank}</td>
-    <td><strong>${esc(s.sym)}</strong></td>
-    <td><span class="chip ${s.bias==="LONG"?"good":"bad"}">${esc(s.bias)}</span></td>
-    <td class="muted">${esc(s.type)}</td>
-    <td class="n">${d.computed}<span class="dim">/100</span></td>
-    <td><span class="chip ${s.tier==="High"?"good":"warn"}">${esc(s.tier)}</span></td>
-    <td class="n">${rupee(s.keyLevel)}</td>
-    <td class="n">${d.tgts[0].rr.toFixed(2)}:1</td>
-    <td class="n">+${d.tgts[0].profitPct.toFixed(2)}%</td>
-    <td class="muted">${esc(s.mainRisk)}</td>
-  </tr>`;
-}
-
-/* ========================= views ========================= */
+const COND_ICON = { MET:["✓","good"], NOT_MET:["✕","bad"], UNKNOWN:["?","unk"], MANUAL:["✎","unk"] };
 
 function viewDesk(){
-  const s = cur(), d = s.d;
-  const nifty = SCAN.market.indices[0];
-  const phase = state.phase;
+  const p = state.api.plan;
+  const head = `<div class="page-head"><div><h1>Live desk</h1>
+    <p class="sub">${p ? `Plan <span class="num">${esc(p.briefId)}</span> · for ${niceDate(p.context ? nextWeekday(p.context.dataDate) : null)} · ${marketPhase().label}` : marketPhase().label}</p></div>
+    ${p && !(p.context && nextWeekday(p.context.dataDate) > istDate()) ? `<div class="head-right">
+      <label class="switch-l"><input type="checkbox" id="mon-auto" ${state.monitor.auto ? "checked" : ""}> Auto-check every minute</label>
+      <button class="btn primary" id="mon-run" ${state.monitor.status === "loading" ? "disabled" : ""}>
+        ${state.monitor.status === "loading" ? `<span class="spin"></span> Checking…` : `<span class="glyph">↻</span> Check now`}</button>
+    </div>` : ""}</div>`;
+  if (!p) return head + noPlan();
+  if (state.auth.status !== "connected") return head + emptyState("Not connected to Dhan", "The desk reads live 5-minute bars from Dhan. Log in on the Connect page.");
 
-  let phaseBlock = "";
-
-  if (phase === "tonight"){
-    phaseBlock = `
-      <div class="section">
-        <div class="section-head"><h2>Trade plan</h2><span class="eyebrow">${esc(s.sym)} · read tonight, act tomorrow</span></div>
-        <div class="grid g2">
-          <div class="card">
-            <div class="card-head"><span class="card-title">Levels</span>
-              <span class="chip ${s.bias==="LONG"?"good":"bad"}" style="margin-left:auto">${esc(s.bias)}</span></div>
-            ${ladder(s)}
-          </div>
-          <div class="card">
-            <div class="card-head"><span class="card-title">The numbers</span></div>
-            <dl class="kv">
-              <dt>Trigger (key level)</dt><dd>${rupee(s.keyLevel)}</dd>
-              <dt>Entry zone</dt><dd>${rupee(s.entry[0],0)}–${fmt(s.entry[1],0)}</dd>
-              <dt>Stop loss</dt><dd style="color:var(--bad)">${rupee(s.stop,0)}</dd>
-              <dt>Risk per share</dt><dd>${rupee(d.risk,2)} · ${d.riskPct.toFixed(2)}%</dd>
-              ${d.tgts.map(t => `<dt>${t.label} · ${t.rr.toFixed(2)}:1</dt>
-                <dd style="color:var(--accent)">${rupee(t.mid,0)} &nbsp;+${t.profitPct.toFixed(2)}%</dd>`).join("")}
-            </dl>
-            <hr class="rule">
-            <div class="eyebrow" style="margin-bottom:6px">Invalidation</div>
-            <p class="muted">${esc(s.invalidation)}</p>
-            <div class="eyebrow" style="margin:12px 0 6px">Stop rationale</div>
-            <p class="muted">${esc(s.stopReason)}</p>
-          </div>
+  const session = p.context ? nextWeekday(p.context.dataDate) : null;
+  if (session && session > istDate()){
+    return head + `<div class="banner" style="margin-bottom:14px"><span class="glyph">i</span>
+      <div>This plan is for <strong>${niceDate(session)}</strong>. The desk goes live that morning — open it from 9:00 IST and it checks every setup's conditions each minute.</div></div>
+      <div class="desk-grid">${(p.setups || []).map(s => `<div class="desk-card">
+        <div class="desk-top"><div><strong class="desk-sym">${esc(s.symbol)}</strong>${s.top3Rank ? `<span class="chip warn">#${s.top3Rank}</span>` : ""}
+          <span class="chip ${s.bias==="LONG"?"good":"bad"}">${s.bias}</span></div><span class="chip">Waiting for ${niceDate(session)}</span></div>
+        <div class="desk-nums" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+          <div><span class="k">Trigger</span><span class="v">${fmt(s.entryTrigger)}</span></div>
+          <div><span class="k">Stop</span><span class="v neg">${fmt(s.stopLoss)}</span></div>
+          <div><span class="k">T1 / T2</span><span class="v pos">${(s.targets||[]).map(t => fmt(t)).join(" / ") || "—"}</span></div>
+          <div><span class="k">Qty</span><span class="v">${s.positionSizing && s.positionSizing.shares != null ? s.positionSizing.shares : "—"}</span></div>
         </div>
-      </div>
-
-      <div class="section">
-        <div class="section-head"><h2>Entry conditions</h2>
-          <span class="eyebrow">${s.conditions.filter(c=>c.mandatory).length} required · ${s.conditions.filter(c=>!c.mandatory).length} preferred</span></div>
-        <div class="card">${condList(s, false)}</div>
-      </div>`;
+        <ul class="desk-conds" style="margin-top:10px">${(s.conditions||[]).map(c => `<li><span class="ci unk">·</span><span class="${c.required ? "" : "dim"}">${esc(c.text)}${c.required ? "" : ` <span class="dim" style="font-size:11px">(preferred)</span>`}</span></li>`).join("")}</ul>
+      </div>`).join("")}</div>`;
   }
-
-  if (phase === "preopen"){
-    const v = gapVerdict(s, state.gap);
-    const openPx = s.facts.close * (1 + state.gap/100);
-    phaseBlock = `
-      <div class="section">
-        <div class="section-head"><h2>09:00–09:15 revalidation</h2>
-          <span class="eyebrow">mechanical — from the scan's own gap table</span></div>
-        <div class="card">
-          <div class="grid g3" style="align-items:end;gap:16px">
-            <div class="field">
-              <label for="gap-in">Opening gap on ${esc(s.sym)}</label>
-              <input class="input" id="gap-in" type="number" step="0.1" value="${state.gap}">
-            </div>
-            <div>
-              <div class="eyebrow" style="margin-bottom:4px">Implied open</div>
-              <div class="num" style="font-size:22px">${rupee(openPx)}</div>
-            </div>
-            <div>
-              <div class="eyebrow" style="margin-bottom:4px">Against trigger ${rupee(s.keyLevel)}</div>
-              <div class="num" style="font-size:22px;color:${openPx>=s.keyLevel?"var(--warn)":"var(--ink)"}">
-                ${openPx>=s.keyLevel ? "opens above" : rupee(s.keyLevel-openPx,2)+" below"}</div>
-            </div>
-          </div>
-          <hr class="rule">
-          <div class="lights">
-            ${["green","yellow","red"].map(k => `
-              <div class="light ${k} ${v && v.verdict===k ? "on":""}">
-                <div class="light-name">${k}</div>
-                <div class="light-body">${esc(s.lights[k].slice(0,3).join(" · "))}</div>
-              </div>`).join("")}
-          </div>
-          ${v ? `<div class="banner ${v.verdict==="green"?"good":v.verdict==="yellow"?"warn":"bad"}" style="margin-top:16px">
-            <span class="glyph">${v.verdict==="green"?"✓":v.verdict==="yellow"?"!":"✗"}</span>
-            <div><strong>${v.verdict.toUpperCase()}</strong> — ${esc(v.action)}</div></div>` : ""}
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-head"><h2>Full gap table</h2></div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Opening gap</th><th>Verdict</th><th>Prescribed action</th></tr></thead>
-          <tbody>${s.gapPlan.map(r => `<tr${v===r?' style="background:rgba(255,255,255,.04)"':''}>
-            <td class="n">${r.lo<=-99?"below −1%":r.hi>=99?"above +3%":`${r.lo>0?"+":""}${r.lo}% to ${r.hi>0?"+":""}${r.hi}%`}</td>
-            <td><span class="chip ${r.verdict==="green"?"good":r.verdict==="yellow"?"warn":"bad"}">${r.verdict}</span></td>
-            <td class="muted" style="white-space:normal">${esc(r.action)}</td></tr>`).join("")}</tbody>
-        </table></div>
-      </div>`;
+  if (session && session < istDate()){
+    return head + emptyState(`This plan was for ${niceDate(session)}`,
+      "That session is over, so there is nothing live to watch. Its results are on the Track record page; the latest plan is on the All setups tabs.",
+      `<button class="btn primary nav-item" data-view="track" style="margin-top:12px">Open Track record</button>`);
   }
+  const m = state.monitor, d = m.data;
+  if (m.status === "idle" && !d){ setTimeout(runMonitor, 0); }
+  const phase = marketPhase().id;
+  const planSyms = new Set((d && d.setups || []).map(s => s.symbol));
+  const unmonitored = (p.setups || []).filter(s => !planSyms.has(s.symbol));
+  const levels = Object.fromEntries((p.setups || []).map(s => [s.symbol, s]));
 
-  if (phase === "live"){
-    phaseBlock = `
-      <div class="section">
-        <div class="section-head"><h2>Condition monitor</h2>
-          <label class="switch" style="margin-left:auto">
-            <input type="checkbox" id="sim" ${state.simulate?"checked":""}>
-            <span class="track"></span> Demo: simulate a feed
-          </label>
-        </div>
-        ${state.simulate
-          ? `<div class="banner warn" style="margin-bottom:14px"><span class="glyph">!</span>
-             <div>Simulated states, not market data. Shown so the monitor's behaviour is visible before a feed is attached.</div></div>`
-          : `<div class="banner" style="margin-bottom:14px"><span class="glyph">○</span>
-             <div>No intraday feed attached. This view needs VWAP, 5-minute closes, per-bar volume, the live Nifty level and live sector indices.</div></div>`}
-        <div class="grid g2">
-          ${SCAN.setups.map(x => `<div class="card${x.id===state.setupId?" lift":""}">
-            <div class="card-head">
-              <span class="card-title">${esc(x.sym)}</span>
-              <span class="chip ${x.bias==="LONG"?"good":"bad"}">${esc(x.bias)}</span>
-              <span class="chip unk" style="margin-left:auto">trigger ${rupee(x.keyLevel)}</span>
-            </div>
-            ${condList(x, state.simulate)}
-          </div>`).join("")}
-        </div>
-      </div>
+  return `${head}
+    ${phase === "pre" || phase === "closed" ? `<div class="banner" style="margin-bottom:14px"><span class="glyph">i</span>
+      <div>The market isn't open. Until the session starts, every condition reads <strong>unknown</strong> and nothing triggers. ${phase === "closed" ? "" : "Auto-check starts at 9:00 IST."}</div></div>` : ""}
+    ${phase === "post" ? `<div class="banner" style="margin-bottom:14px"><span class="glyph">i</span>
+      <div>The session has closed — this is how today played out. Record it on the <a href="#" class="nav-item" data-view="track">Track record</a> page.</div></div>` : ""}
+    ${m.status === "error" ? `<div class="banner bad" style="margin-bottom:14px"><span class="glyph">✗</span><div>${esc(m.error)}</div></div>` : ""}
 
-      <div class="section">
-        <div class="section-head"><h2>Failed-breakout rule</h2></div>
-        <div class="card"><p class="muted">${esc(SCAN.setups[0].failRule)}</p></div>
-      </div>`;
-  }
-
-  if (phase === "close"){
-    phaseBlock = `
-      <div class="section">
-        <div class="section-head"><h2>Outcome log</h2><span class="eyebrow">the loop that decides whether any of this works</span></div>
-        <div class="banner" style="margin-bottom:14px"><span class="glyph">○</span>
-          <div>Nothing logged yet. Each setup resolves at the close into one of: <strong>T2 hit · T1 hit · stopped · invalidated · expired unfilled</strong>. That record is what turns a score into a measured hit rate.</div></div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Setup</th><th>Bias</th><th>Score</th><th>Triggered</th><th>Outcome</th><th>R multiple</th><th>Prompt version</th></tr></thead>
-          <tbody>${SCAN.setups.map(x => `<tr>
-            <td><strong>${esc(x.sym)}</strong></td>
-            <td><span class="chip ${x.bias==="LONG"?"good":"bad"}">${esc(x.bias)}</span></td>
-            <td class="n">${x.d.computed}</td>
-            <td class="dim">—</td><td class="dim">pending close</td><td class="dim">—</td>
-            <td class="dim">—</td></tr>`).join("")}</tbody>
-        </table></div>
-        <div class="card" style="margin-top:16px">
-          <h3>What this view will answer</h3>
-          <ul class="list">
-            <li>Do setups scoring 80+ actually outperform those in the 70s?</li>
-            <li>Which of the nine factors predict follow-through, and which are noise?</li>
-            <li>How often does a triggered setup reach T1 before the stop?</li>
-            <li>How often does the scan produce nothing — and was that the right call?</li>
-          </ul>
-          <p class="dim" style="margin-top:10px">The scan states it has no validated historical edge and assigns no probability. Only this log can change that.</p>
-        </div>
-      </div>`;
-  }
-
-  return `
-    <div class="page-head">
-      <div>
-        <h1>Desk</h1>
-        <p class="sub">Scan for the ${esc(SCAN.meta.forSession)} session · generated ${esc(SCAN.meta.analysedAt)}</p>
-      </div>
-      <div class="head-right">
-        <span class="chip warn"><span class="glyph">!</span> ${esc(SCAN.meta.confidence)} confidence</span>
-      </div>
+    ${d ? `<div class="pv-strip" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+      ${["NIFTY 50","BANK NIFTY"].map(ix => `<div class="pv-card"><div class="pv-label">${ix}</div>
+        <div class="big-n">${d.indexLevels[ix] != null ? fmt(d.indexLevels[ix]) : "—"}</div></div>`).join("")}
+      <div class="pv-card"><div class="pv-label">Last checked</div>
+        <div class="big-n">${m.at ? m.at.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) : "—"}</div>
+        <p class="dim" style="font-size:12px">${d.setups.filter(s => s.entryValid).length} of ${d.setups.length} setups have every required condition met</p></div>
     </div>
+    ${Object.keys(d.sectorChanges || {}).length ? `<div class="sector-chips">${Object.entries(d.sectorChanges).sort((a,b) => b[1]-a[1]).map(([k,v]) =>
+      `<span class="chip ${v>0?"good":v<0?"bad":""}">${esc(k.replace(/^NIFTY /,""))} ${signed(v)}%</span>`).join("")}</div>` : ""}
 
-    <div class="phases" role="group" aria-label="Session phase">
-      ${PHASES.map(p => `<button class="phase" data-phase="${p.id}" aria-pressed="${state.phase===p.id}">${p.label}</button>`).join("")}
-    </div>
-
-    <div class="grid g2 section">
-      <div class="card lift">
-        <div class="card-head">
-          <span class="card-title">Top setup · ${esc(s.sym)}</span>
-          <span class="chip good" style="margin-left:auto">${esc(s.tier)}</span>
+    <div class="desk-grid">${d.setups.map(s => {
+      const lv = levels[s.symbol] || {};
+      const dist = s.lastPrice != null ? ((s.entryTrigger - s.lastPrice) / s.lastPrice) * 100 : null;
+      return `<div class="desk-card ${s.entryValid ? "ready" : ""}">
+        <div class="desk-top">
+          <div><strong class="desk-sym">${esc(s.symbol)}</strong>
+            ${lv.top3Rank ? `<span class="chip warn">#${lv.top3Rank}</span>` : ""}
+            <span class="chip ${s.bias==="LONG"?"good":"bad"}">${s.bias}</span></div>
+          ${statusChip(s.outcome)}
         </div>
-        <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-          <div class="big">${d.computed}<span style="font-size:20px;color:var(--ink-3)">/100</span></div>
-          <span class="chip good">${esc(s.bias)}</span>
-          <span class="chip">${esc(s.type)}</span>
+        <div class="desk-nums">
+          <div><span class="k">Last</span><span class="v">${s.lastPrice != null ? fmt(s.lastPrice) : "—"}</span></div>
+          <div><span class="k">Trigger</span><span class="v">${fmt(s.entryTrigger)}</span><span class="d">${dist != null && s.outcome.status === "NOT_TRIGGERED" ? `${signed(dist)}% away` : ""}</span></div>
+          <div><span class="k">Stop</span><span class="v neg">${fmt(lv.stopLoss)}</span></div>
+          <div><span class="k">T1 / T2</span><span class="v pos">${(lv.targets || []).map(t => fmt(t)).join(" / ") || "—"}</span></div>
+          <div><span class="k">VWAP</span><span class="v">${s.vwap != null ? fmt(s.vwap) : "—"}</span></div>
         </div>
-        <p class="muted" style="margin-top:12px">${esc(s.why)}</p>
-        <hr class="rule">
-        <dl class="kv">
-          <dt>Assessable score</dt><dd>${d.assessableGot}/${d.assessableMax} · ${d.assessablePct.toFixed(0)}%</dd>
-          <dt>Points that could not be verified</dt><dd>${d.unknownPts}</dd>
-        </dl>
-        <p class="dim" style="margin-top:10px;font-size:12px">A quality score, not a probability of profit.</p>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><span class="card-title">Market regime</span>
-          <span class="chip warn" style="margin-left:auto">range-bound</span></div>
-        <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-          <div class="big">${fmt(nifty.close)}</div>
-          <span class="chip good">${pct(nifty.changePct)}</span>
-          <span class="chip">VIX ${fmt(SCAN.market.vix.value)}</span>
-        </div>
-        <p class="muted" style="margin-top:12px">${esc(SCAN.market.regime)}. ${esc(SCAN.market.regimeNote)}</p>
-        <hr class="rule">
-        <dl class="kv">
-          <dt>Day's range</dt><dd>${fmt(nifty.low)} – ${fmt(nifty.high)}</dd>
-          <dt>Immediate resistance</dt><dd>${esc(nifty.resistance[0])}</dd>
-          <dt>Immediate support</dt><dd>${esc(nifty.support[0])}</dd>
-        </dl>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-head"><h2>Watchlist</h2>
-        <span class="eyebrow">1 tradeable · 1 watchlist · 1 extended · 1 rejected</span></div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>#</th><th>Stock</th><th>Bias</th><th>Setup</th><th>Score</th><th>Quality</th><th>Trigger</th><th>R:R to T1</th><th>To T1</th><th>Main risk</th></tr></thead>
-        <tbody>${SCAN.setups.map(setupRow).join("")}</tbody>
-      </table></div>
-      <p class="dim" style="margin-top:10px;font-size:12px">
-        ${esc(SCAN.watchOnly[0].sym)} scores ${SCAN.watchOnly[0].score} but is watchlist-only on extension.
-        ${esc(SCAN.rejected[0].sym)} was rejected outright. Both are on the Rejected page with reasons.</p>
-    </div>
-
-    ${phaseBlock}`;
+        <div class="desk-ready">${s.entryValid
+          ? `<span class="chip good">✓ All ${s.requiredTotal} required conditions met</span>`
+          : `<span class="dim">${s.requiredMet} of ${s.requiredTotal} required conditions met</span>`}</div>
+        <ul class="desk-conds">${s.conditions.map(c => { const [ic, cl] = COND_ICON[c.state] || ["?","unk"]; return `
+          <li><span class="ci ${cl}">${ic}</span><span><span class="${c.required ? "" : "dim"}">${esc(c.text)}</span>${c.required ? "" : ` <span class="dim" style="font-size:11px">(preferred)</span>`}
+            <span class="obs">${esc(c.observed)}</span></span></li>`; }).join("")}</ul>
+      </div>`; }).join("")}</div>
+    ${unmonitored.length ? `<p class="dim" style="margin-top:14px;font-size:12px">Not monitored (no exchange data or missing levels): ${unmonitored.map(s => esc(s.symbol)).join(", ")}</p>` : ""}`
+    : `<p class="dim"><span class="spin"></span> Reading live data…</p>`}`;
 }
 
-function viewSetups(){
-  const s = cur(), d = s.d;
-  return `
-    <div class="page-head">
-      <div>
-        <h1>${esc(s.sym)}</h1>
-        <p class="sub">${esc(s.name)} · ${esc(s.type)} · ${esc(s.sector)} sector</p>
-      </div>
-      <div class="head-right">
-        ${SCAN.setups.map(x => `<button class="phase" data-setup="${x.id}" aria-pressed="${x.id===s.id}"
-          style="border:1px solid var(--line);border-radius:10px">${esc(x.sym)}</button>`).join("")}
-      </div>
-    </div>
-
-    <div class="grid g2">
-      <div class="card">
-        <div class="card-head"><span class="card-title">Score breakdown</span>
-          <span class="num" style="margin-left:auto;font-size:20px">${d.computed}<span class="dim">/100</span></span></div>
-        ${scoreBars(s)}
-        <hr class="rule">
-        ${d.mismatch ? `<div class="banner warn" style="margin-bottom:12px"><span class="glyph">!</span>
-          <div><strong>Arithmetic flag.</strong> The nine factors sum to <span class="num">${d.computed}</span>,
-          but the scan reports <span class="num">${s.reportedScore}</span>. The computed figure is shown throughout.</div></div>` : ""}
-        <dl class="kv">
-          <dt>Verified factors</dt><dd>${d.assessableGot}/${d.assessableMax} · ${d.assessablePct.toFixed(0)}%</dd>
-          <dt>Unverifiable points</dt><dd>${d.unknownPts} of 100</dd>
-        </dl>
-        <p class="dim" style="margin-top:10px;font-size:12px">
-          Hatched bars are factors the scan could not verify. Unknown is not the same as weak —
-          those ${d.unknownPts} points are why nothing reached 90 tonight.</p>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><span class="card-title">Levels</span>
-          <span class="chip ${s.bias==="LONG"?"good":"bad"}" style="margin-left:auto">${esc(s.bias)}</span></div>
-        ${ladder(s)}
-        <hr class="rule">
-        <dl class="kv">
-          <dt>Risk per share</dt><dd>${rupee(d.risk,2)}</dd>
-          ${d.tgts.map(t => `<dt>${t.label} reward · R:R</dt>
-            <dd>${rupee(t.reward,2)} · ${t.rr.toFixed(2)}:1</dd>`).join("")}
-        </dl>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-head"><h2>Entry conditions</h2></div>
-      <div class="card">
-        <div class="banner good" style="margin-bottom:14px"><span class="glyph">▸</span>
-          <div><strong>${esc(s.keyLevelNote)}</strong> A move through ${rupee(s.keyLevel)} without volume is not sufficient.</div></div>
-        ${condList(s, false)}
-      </div>
-    </div>
-
-    <div class="grid g2 section">
-      <div class="card">
-        <div class="card-head"><span class="card-title">Session facts</span></div>
-        <dl class="kv">
-          <dt>Close${s.facts.closeExact?"":" <span class='chip unk'>approx</span>"}</dt><dd>${rupee(s.facts.close)}</dd>
-          <dt>High</dt><dd>${rupee(s.facts.high)}</dd>
-          ${s.facts.low ? `<dt>Low</dt><dd>${rupee(s.facts.low)}</dd>` : ""}
-          <dt>Volume</dt><dd>${esc(s.facts.volume)}</dd>
-          <dt>20-day average</dt><dd>${esc(s.facts.avgVolume)}</dd>
-          ${s.facts.volRatio ? `<dt>Volume ratio</dt><dd>${s.facts.volRatio}×</dd>` : ""}
-          ${s.facts.atr ? `<dt>ATR(14)</dt><dd>${rupee(s.facts.atr)} · ${s.facts.atrPct}%</dd>` : ""}
-          ${s.facts.delivery ? `<dt>Delivery</dt><dd>${s.facts.delivery}% vs ${s.facts.deliveryAvg}% avg</dd>` : ""}
-          ${s.facts.week52High ? `<dt>52-week high</dt><dd>${rupee(s.facts.week52High)}</dd>` : ""}
-        </dl>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><span class="card-title">Multi-timeframe</span></div>
-        <dl class="kv">${s.mtf.map(([tf,txt,ok]) => `
-          <dt>${esc(tf)}</dt>
-          <dd>${ok===false ? `<span class="chip unk">${esc(txt)}</span>` : `<span class="muted">${esc(txt)}</span>`}</dd>`).join("")}
-        </dl>
-        <hr class="rule">
-        <div class="eyebrow" style="margin-bottom:6px">Catalyst</div>
-        <p class="muted">${s.catalyst.verified
-          ? `<span class="chip good">verified</span> ${esc(s.catalyst.text)}`
-          : `<span class="chip unk">unverified</span> ${esc(s.catalyst.text)}`}</p>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-head"><h2>Self-critique</h2><span class="eyebrow">the scan arguing against itself</span></div>
-      <div class="card">
-        <dl class="kv">${s.critique.map(([k,v]) => `<dt>${esc(k)}</dt><dd style="text-align:right;max-width:52ch;font-family:var(--ui);color:var(--ink-2)">${esc(v)}</dd>`).join("")}</dl>
-      </div>
-    </div>`;
-}
-
+/* ========================= market ========================= */
 function viewMarket(){
-  const m = SCAN.market;
-  const maxAbs = 1.3;
-  const sectRow = (name, pctv, exact, weakNote) => {
-    const w = Math.min(Math.abs(pctv ?? 1) / maxAbs, 1) * 50;
-    const cls = weakNote ? "unq" : (pctv > 0 ? "pos" : "neg");
-    return `<div class="sect-row">
-      <div class="bar-name"><span>${esc(name)}</span></div>
-      <div class="sect-axis"><div class="sect-zero"></div><div class="sect-bar ${cls}" style="width:${w.toFixed(1)}%"></div></div>
-      <div class="bar-val">${weakNote ? `<span class="dim">n/a</span>` : (exact?"":"~") + pct(pctv)}</div>
-    </div>`;
-  };
+  const p = state.api.plan, c = p && p.context;
+  const head = `<div class="page-head"><div><h1>Market</h1>
+    <p class="sub">${c ? `Exchange data for ${niceDate(c.dataDate)} — what plan <span class="num">${esc(p.briefId)}</span> was written from` : "The exchange data behind the current plan"}</p></div></div>`;
+  if (!p) return head + noPlan();
+  if (!c) return head + emptyState("No market data saved with this plan", "Plans uploaded before market data was kept with them don't have it. New plans will.");
 
-  return `
-    <div class="page-head">
-      <div><h1>Market</h1><p class="sub">Session of ${esc(SCAN.meta.lastSession)}</p></div>
-      <div class="head-right"><span class="chip warn">${esc(m.regime)}</span></div>
+  const rows = Object.fromEntries(c.rows.map(r => [r.symbol, r]));
+  const maxAbs = Math.max(0.5, ...c.sectors.map(s => Math.abs(s.changePercent)));
+  const mover = sym => { const r = rows[sym]; return r ? `<tr>
+    <td><strong>${esc(r.symbol)}</strong>${r.fno ? "" : ` <span class="dim" style="font-size:11px">non-F&O</span>`}</td>
+    <td class="n ${rClass(r.changePct)}">${signed(r.changePct)}%</td><td class="n">${fmt(r.close)}</td>
+    <td class="n">${r.rvol != null ? r.rvol.toFixed(2) + "×" : "—"}</td><td class="n">${r.closePos != null ? r.closePos.toFixed(2) : "—"}</td></tr>` : ""; };
+  const moverTable = (title, syms) => `<div class="pv-card" style="padding:0"><div class="pv-label" style="padding:12px 14px 0">${title}</div>
+    <table class="dense"><thead><tr><th>Stock</th><th class="n">Chg</th><th class="n">Close</th><th class="n">RVOL</th><th class="n">Close pos</th></tr></thead>
+    <tbody>${syms.map(mover).join("")}</tbody></table></div>`;
+  const named = [...new Set([...(p.setups||[]).map(s => s.symbol), ...(p.watchlist||[]).map(w => w.symbol)])].filter(s => rows[s]);
+
+  return `${head}
+    <div class="pv-strip" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+      ${[["NIFTY 50", c.nifty], ["BANK NIFTY", c.bankNifty]].map(([name, q]) => `<div class="pv-card">
+        <div class="pv-label">${name}</div>
+        <div style="display:flex;align-items:baseline;gap:10px"><span class="big-n">${fmt(q.lastPrice)}</span><span class="${rClass(q.changePercent)}">${signed(q.changePercent)}%</span></div>
+        <p class="dim" style="font-size:12px;margin-top:4px">O ${fmt(q.open)} · H ${fmt(q.high)} · L ${fmt(q.low)}</p></div>`).join("")}
     </div>
 
-    <div class="grid g2">
-      ${m.indices.map(i => `<div class="card">
-        <div class="card-head"><span class="card-title">${esc(i.name)}</span>
-          <span class="chip ${i.changePct>=0?"good":"bad"}" style="margin-left:auto">${pct(i.changePct)}</span></div>
-        <div class="big">${fmt(i.close)}</div>
-        <hr class="rule">
+    <div class="grid g2" style="margin-bottom:18px">
+      <div class="pv-card"><div class="pv-label">Sectors · average move of constituents</div>
+        <div class="sbars">${[...c.sectors].sort((a,b) => b.changePercent - a.changePercent).map(s => `
+          <div class="sbar"><span>${esc(s.sector.replace(/^NIFTY /,""))}</span>
+            <span class="sbar-track"><i class="${s.changePercent>=0?"up":"dn"}" style="width:${Math.abs(s.changePercent)/maxAbs*50}%;${s.changePercent>=0?"left:50%":"right:50%"}"></i></span>
+            <span class="n ${rClass(s.changePercent)}">${signed(s.changePercent)}%</span></div>`).join("")}</div></div>
+      <div class="pv-card"><div class="pv-label">Universe</div>
         <dl class="kv">
-          <dt>Previous close</dt><dd>${fmt(i.prevClose)}</dd>
-          <dt>Open${i.gapPct!=null?` <span class="dim">(gap ${pct(i.gapPct)})</span>`:""}</dt><dd>${fmt(i.open)}</dd>
-          <dt>High</dt><dd>${fmt(i.high)}</dd>
-          <dt>Low</dt><dd>${fmt(i.low)}</dd>
-          ${i.advDec?`<dt>Advance / decline</dt><dd>${esc(i.advDec)}</dd>`:""}
-          <dt>Support</dt><dd>${i.support.join(" / ")}</dd>
-          <dt>Resistance</dt><dd>${i.resistance.join(" / ")}</dd>
-        </dl>
-        ${i.candle?`<p class="dim" style="margin-top:10px;font-size:12px">${esc(i.candle)}</p>`:""}
-      </div>`).join("")}
+          <dt>Stocks analysed</dt><dd>${c.universeSize}</dd>
+          <dt>Non-F&O included</dt><dd>${c.nonFnoCount}</dd>
+          <dt>Skipped</dt><dd>${c.skipped.length}</dd>
+          <dt>Capital · risk</dt><dd>${rupee(c.capital,0)} · ${c.riskPercent}%</dd>
+        </dl></div>
     </div>
 
-    <div class="grid g2 section">
-      <div class="card">
-        <div class="card-head"><span class="card-title">Sector rotation</span>
-          <span class="eyebrow" style="margin-left:auto">% on the session</span></div>
-        <div class="sect">
-          ${m.indices && SCAN.sectors.strong.map(s => sectRow(s.name, s.pct, s.exact, false)).join("")}
-          ${SCAN.sectors.weak.map(s => sectRow(s.name, -1, true, s.note)).join("")}
-        </div>
-        <hr class="rule">
-        <p class="dim" style="font-size:12px">
-          Hatched bars are sectors the scan describes only as negative, with no figure —
-          shown as direction without magnitude rather than given an invented number.</p>
-        <p class="muted" style="margin-top:8px">${esc(SCAN.sectors.observation)}</p>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><span class="card-title">India VIX</span></div>
-        <div style="display:flex;align-items:baseline;gap:12px">
-          <div class="big">${fmt(m.vix.value)}</div>
-          <span class="chip good">${pct(m.vix.changePct)}</span>
-        </div>
-        <p class="muted" style="margin-top:12px">${esc(m.vix.read)}</p>
-        <hr class="rule">
-        <div class="eyebrow" style="margin-bottom:8px">F&amp;O movers</div>
-        <dl class="kv">${SCAN.movers.map(x => `
-          <dt>${esc(x.sym)}</dt>
-          <dd style="color:${x.pct>0?"var(--accent)":"var(--bad)"}">${x.exact?"":"~"}${pct(x.pct)}</dd>`).join("")}</dl>
-        <p class="dim" style="margin-top:10px;font-size:12px">Selecting the biggest movers alone would violate the methodology — these are inputs, not candidates.</p>
-      </div>
+    <div class="grid g2" style="margin-bottom:18px">
+      ${moverTable("Top gainers", c.gainers)}
+      ${moverTable("Top losers", c.losers)}
     </div>
 
-    <div class="section">
-      <div class="section-head"><h2>Regime call</h2></div>
-      <div class="grid g2">
-        <div class="card">
-          <div class="fip">${m.fip.map(f => `<div class="${f.cls}">
-            <span class="lab">${esc(f.lab)}</span>${esc(f.text)}</div>`).join("")}</div>
-        </div>
-        <div class="card">
-          <h3>Strategy implication</h3>
-          <ul class="list">${m.strategy.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
-        </div>
-      </div>
-    </div>`;
+    ${named.length ? `<div class="section-head"><h2>Stocks in the plan</h2><span class="eyebrow">exchange figures the analyst read</span></div>
+    <div class="table-wrap"><table class="dense" style="min-width:900px">
+      <thead><tr><th>Stock</th><th class="n">Close</th><th class="n">Chg</th><th class="n">RVOL</th><th class="n">ATR14</th>
+        <th class="n">20d high</th><th class="n">20d low</th><th class="n">EMA20</th><th class="n">52w high</th><th class="n">4-day run</th></tr></thead>
+      <tbody>${named.map(s => { const r = rows[s]; return `<tr>
+        <td><strong>${esc(s)}</strong></td><td class="n">${fmt(r.close)}</td><td class="n ${rClass(r.changePct)}">${signed(r.changePct)}%</td>
+        <td class="n">${r.rvol.toFixed(2)}×</td><td class="n">${fmt(r.atr14)}</td><td class="n">${fmt(r.swingHigh20)}</td><td class="n">${fmt(r.swingLow20)}</td>
+        <td class="n">${fmt(r.ema20)}</td><td class="n">${fmt(r.high52w)}</td><td class="n ${rClass(r.run4dPct)}">${signed(r.run4dPct)}%</td></tr>`; }).join("")}</tbody>
+    </table></div>` : ""}`;
 }
 
-function viewRejected(){
-  const w = SCAN.watchOnly[0], r = SCAN.rejected[0];
-  return `
-    <div class="page-head">
-      <div><h1>Rejected</h1><p class="sub">What the filter threw out, and why — the record that shows the filter is working</p></div>
-    </div>
+/* ========================= track record ========================= */
+state.track = { status:"idle", data:null, error:null, reviewing:null };
 
-    <div class="grid g2">
-      <div class="card">
-        <div class="card-head"><span class="card-title">${esc(w.sym)}</span>
-          <span class="chip warn" style="margin-left:auto">${esc(w.tier)}</span></div>
-        <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-          <div class="big">${w.score}<span style="font-size:20px;color:var(--ink-3)">/100</span></div>
-          <span class="chip good">${esc(w.bias)}</span>
-        </div>
-        <p class="muted" style="margin-top:12px">${esc(w.note)}</p>
-        <hr class="rule">
-        <dl class="kv">
-          <dt>Trigger</dt><dd>${esc(w.keyLevel)}</dd>
-          <dt>Entry</dt><dd>${esc(w.entry)}</dd>
-          <dt>Stop</dt><dd>${esc(w.stop)}</dd>
-          <dt>Targets</dt><dd>${esc(w.targets)}</dd>
-        </dl>
-        <div class="banner good" style="margin-top:14px"><span class="glyph">✓</span>
-          <div><strong>Catalyst verified.</strong> ${esc(w.catalyst.text)}</div></div>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><span class="card-title">${esc(r.sym)}</span>
-          <span class="chip bad" style="margin-left:auto">${esc(r.verdict)}</span></div>
-        <span class="chip bad">${esc(r.bias)}</span>
-        <p class="muted" style="margin-top:12px">${esc(r.detail)}</p>
-        <div class="banner bad" style="margin:14px 0"><span class="glyph">✗</span><div>${esc(r.reason)}</div></div>
-        <div class="eyebrow" style="margin-bottom:6px">Conditional re-entry</div>
-        <p class="muted">${esc(r.conditional)}</p>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-head"><h2>Do not trade tomorrow</h2><span class="eyebrow">${SCAN.avoid.length} names</span></div>
-      <div class="table-wrap"><table style="min-width:520px">
-        <thead><tr><th>Stock</th><th>Reason</th></tr></thead>
-        <tbody>${SCAN.avoid.map(([n,why]) => `<tr>
-          <td><strong>${esc(n)}</strong></td>
-          <td class="muted" style="white-space:normal;max-width:60ch">${esc(why)}</td></tr>`).join("")}</tbody>
-      </table></div>
-    </div>`;
+async function loadTrack(){
+  state.track.status = "loading"; render();
+  try {
+    const [data] = await Promise.all([api("/api/v1/track-record"), loadPlanHistory()]);
+    state.track.data = data; state.track.status = "ok";
+  } catch (err){ state.track.status = "error"; state.track.error = err.message; }
+  render();
 }
 
+async function reviewPlanNow(briefId){
+  state.track.reviewing = briefId; state.track.error = null; render();
+  try {
+    const review = await api(`/api/v1/analyst/plans/${encodeURIComponent(briefId)}/review`, { method:"POST" });
+    log("ok", "plan reviewed", { briefId, sessionDate: review.sessionDate, final: review.final });
+    if (state.planCache) delete state.planCache[briefId];
+  } catch (err){
+    state.track.error = `${briefId}: ${err.message}`;
+    log("error", "plan review failed", { briefId, error: err.message });
+  }
+  state.track.reviewing = null;
+  await loadTrack();
+}
+
+function viewTrack(){
+  const t = state.track;
+  if (t.status === "idle"){ setTimeout(loadTrack, 0); }
+  const head = `<div class="page-head"><div><h1>Track record</h1>
+    <p class="sub">How each plan's setups actually played out, replayed bar by bar on 5-minute data.</p></div>
+    <div class="head-right"><button class="btn" id="track-reload">${t.status === "loading" ? `<span class="spin"></span>` : `<span class="glyph">↻</span>`} Reload</button></div></div>`;
+  if (!t.data) return head + (t.status === "error" ? `<div class="banner bad"><span class="glyph">✗</span><div>${esc(t.error)}</div></div>` : `<p class="dim"><span class="spin"></span> Loading…</p>`);
+
+  const s = t.data.summary;
+  const reviewedIds = new Set(t.data.runs.map(r => r.briefId));
+  const pending = (state.history || []).filter(h => !reviewedIds.has(h.briefId));
+  const today = istDate();
+  const noTrades = !s.triggered;
+  const stat = (label, value, sub) => `<div class="pv-card"><div class="pv-label">${label}</div><div class="big-n">${value}</div>${sub ? `<p class="dim" style="font-size:12px">${sub}</p>` : ""}</div>`;
+
+  return `${head}
+    ${t.error ? `<div class="banner bad" style="margin-bottom:14px"><span class="glyph">✗</span><div>${esc(t.error)}</div></div>` : ""}
+    <div class="pv-strip" style="grid-template-columns:repeat(5,minmax(0,1fr))">
+      ${stat("Plans reviewed", s.plans, `${s.setups} setups`)}
+      ${stat("Triggered", s.triggerRate != null ? s.triggerRate + "%" : "—", `${s.triggered} of ${s.setups}`)}
+      ${stat("Win rate", s.winRate != null ? s.winRate + "%" : "—", "of triggered trades")}
+      ${stat("Total", noTrades ? "—" : `<span class="${rClass(s.totalR)}">${signed(s.totalR)}R</span>`, `avg ${s.avgR != null ? signed(s.avgR) + "R" : "—"} per trade`)}
+      ${stat("Top 3 only", !s.top3.triggered ? "—" : `<span class="${rClass(s.top3.totalR)}">${signed(s.top3.totalR)}R</span>`, `${s.top3.triggered} triggered · avg ${s.top3.avgR != null ? signed(s.top3.avgR) + "R" : "—"}`)}
+    </div>
+
+    ${pending.length ? `<div class="section-head"><h2>Waiting for review</h2><span class="eyebrow">${pending.length}</span></div>
+    <div class="table-wrap" style="margin-bottom:22px"><table class="dense">
+      <thead><tr><th>Plan</th><th>Written</th><th>For session</th><th class="n">Setups</th><th></th></tr></thead>
+      <tbody>${pending.map(h => {
+        const session = nextWeekday(new Date(new Date(h.acceptedAt).getTime() + IST_MS).toISOString().slice(0, 10));
+        const ready = session <= today;
+        return `<tr><td class="num">${esc(h.briefId)}</td><td>${new Date(h.acceptedAt).toLocaleString("en-IN", { dateStyle:"medium", timeStyle:"short" })}</td>
+          <td>${niceDate(session)}</td><td class="n">${h.setups}</td>
+          <td style="text-align:right">${ready
+            ? `<button class="btn" data-review="${esc(h.briefId)}" ${t.reviewing ? "disabled" : ""}>${t.reviewing === h.briefId ? `<span class="spin"></span> Replaying…` : session === today && marketPhase().id !== "post" ? "Review so far" : "Review"}</button>`
+            : `<span class="dim">after ${niceDate(session)}'s session</span>`}</td></tr>`; }).join("")}</tbody>
+    </table></div>` : ""}
+
+    ${t.data.runs.length ? `<div class="section-head"><h2>Reviewed plans</h2><span class="eyebrow">newest first</span></div>
+    ${t.data.runs.map(r => `<div class="table-wrap" style="margin-bottom:14px">
+      <div class="run-head"><strong>${niceDate(r.sessionDate)}</strong><span class="num dim">${esc(r.briefId)}</span>
+        ${!r.final ? `<span class="chip warn">session in progress</span>`
+          : r.incomplete ? `<span class="chip warn" title="Dhan's intraday bars stop at ${esc(r.dataThrough)}. The closing minutes usually appear later — update the review then.">bars end ${esc(r.dataThrough)}</span>` : ""}
+        <span style="margin-left:auto" class="${rClass(r.summary.totalR)}"><strong>${signed(r.summary.totalR)}R</strong></span>
+        <span class="dim">${r.summary.triggered}/${r.summary.setups} triggered</span>
+        ${r.final && !r.incomplete ? "" : `<button class="btn" data-review="${esc(r.briefId)}" ${t.reviewing ? "disabled" : ""}>${t.reviewing === r.briefId ? `<span class="spin"></span>` : ""} Update</button>`}</div>
+      <table class="dense"><thead><tr><th>Stock</th><th>Bias</th><th>Result</th><th class="n">Entry</th><th class="n">Exit</th><th class="n">R</th><th class="n">P&L %</th><th class="n">Best / worst</th></tr></thead>
+      <tbody>${r.setups.map(x => { const o = x.outcome; return `<tr>
+        <td><strong>${esc(x.symbol)}</strong>${x.top3Rank ? ` <span class="chip warn">#${x.top3Rank}</span>` : ""}</td>
+        <td><span class="chip ${x.bias==="LONG"?"good":"bad"}">${x.bias}</span></td>
+        <td>${statusChip({ status:o.status })}</td>
+        <td class="n">${o.entryPrice != null ? fmt(o.entryPrice) : fmt(x.entryTrigger)}<span class="sub-n">${o.entryTime ? hhmm(o.entryTime) : "trigger"}</span></td>
+        <td class="n">${o.exitPrice != null ? fmt(o.exitPrice) : "—"}<span class="sub-n">${o.exitTime ? hhmm(o.exitTime) : ""}</span></td>
+        <td class="n ${rClass(o.rMultiple)}">${o.rMultiple != null ? signed(o.rMultiple) : "—"}</td>
+        <td class="n ${rClass(o.pnlPercent)}">${o.pnlPercent != null ? signed(o.pnlPercent) + "%" : "—"}</td>
+        <td class="n">${o.maxFavourableR != null ? `${signed(o.maxFavourableR)} / ${signed(o.maxAdverseR)}R` : "—"}</td></tr>`; }).join("")}</tbody></table></div>`).join("")}`
+    : emptyState("Nothing reviewed yet", "After the session a plan was written for, press Review to replay its setups against that day's 5-minute bars.")}
+
+    <p class="dim" style="font-size:12px;margin-top:16px">Entries fill at the trigger (or the open on a gap through it). Where one 5-minute bar touches both the stop and a target, the stop is assumed first. A trade still open at 15:30 is marked to the close. R is the result in multiples of the planned entry-to-stop risk.</p>`;
+}
+
+/* ========================= risk & sizing ========================= */
 function viewRisk(){
-  const s = cur(), d = s.d, R = SCAN.risk;
-  const riskAmt = state.capital * R.perTradePct / 100;
-  const qty = Math.floor(riskAmt / d.risk);
-  const posValue = qty * d.entryMid;
-  const dailyCap = state.capital * R.maxDailyLossPct / 100;
-
-  return `
-    <div class="page-head">
-      <div><h1>Risk &amp; sizing</h1><p class="sub">The scan's framework, applied to your capital</p></div>
-    </div>
-
+  const s = state.settings;
+  const perTrade = s.capital * s.riskPercent / 100;
+  const p = state.api.plan;
+  return `<div class="page-head"><div><h1>Risk &amp; sizing</h1>
+    <p class="sub">Sent with each brief. Your prompt's Part 18 sizes every setup from these.</p></div></div>
     <div class="grid g2">
-      <div class="card lift">
-        <div class="card-head"><span class="card-title">Position size · ${esc(s.sym)}</span></div>
-        <div class="field" style="margin-bottom:16px">
-          <label for="cap">Trading capital (₹)</label>
-          <input class="input" id="cap" type="number" step="10000" min="0" value="${state.capital}">
-        </div>
-        <div class="big">${qty.toLocaleString("en-IN")}<span style="font-size:18px;color:var(--ink-3)"> shares</span></div>
-        <hr class="rule">
-        <dl class="kv">
-          <dt>Risk per trade (${R.perTradePct}%)</dt><dd>${rupee(riskAmt,0)}</dd>
-          <dt>Stop distance</dt><dd>${rupee(d.risk,2)} / share</dd>
-          <dt>Position value</dt><dd>${rupee(posValue,0)}</dd>
-          <dt>Daily loss limit (${R.maxDailyLossPct}%)</dt><dd style="color:var(--bad)">${rupee(dailyCap,0)}</dd>
-        </dl>
-        <p class="dim" style="margin-top:10px;font-size:12px">Quantity = (capital × ${R.perTradePct/100}) ÷ stop distance, rounded down.</p>
-      </div>
-
       <div class="card">
-        <div class="card-head"><span class="card-title">Session limits</span></div>
-        <dl class="kv">
-          <dt>Maximum risk per trade</dt><dd>${R.perTradePct}%</dd>
-          <dt>Maximum daily loss</dt><dd>${R.maxDailyLossPct}%</dd>
-          <dt>Maximum consecutive losses</dt><dd>${R.maxConsecutiveLosses}</dd>
-          <dt>Maximum simultaneous positions</dt><dd>${esc(R.maxPositions)}</dd>
-          <dt>Maximum trades</dt><dd>${R.maxTrades}</dd>
-        </dl>
-        <hr class="rule">
-        <ul class="list tight">${R.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>
-        <div class="banner" style="margin-top:14px"><span class="glyph">○</span>
-          <div>Counters go live once fills are recorded. Limits you have to remember at 11am after two stop-outs are limits you break.</div></div>
+        <div class="card-head"><span class="card-title">Settings</span><span class="dim" id="set-msg" style="margin-left:auto;font-size:12px"></span></div>
+        <label class="field"><span>Trading capital (₹)</span><input class="input" id="set-capital" type="number" min="0" step="10000" value="${s.capital}"></label>
+        <label class="field"><span>Risk per trade (% of capital)</span><input class="input" id="set-risk" type="number" min="0.1" max="5" step="0.1" value="${s.riskPercent}"></label>
+        <label class="field"><span>Maximum trades per day</span><input class="input" id="set-max" type="number" min="1" max="10" step="1" value="${s.maxTrades}"></label>
       </div>
-    </div>
-
-    <div class="section">
-      <div class="section-head"><h2>Stay out entirely if</h2><span class="eyebrow">${SCAN.noTrade.length} conditions</span></div>
       <div class="card">
-        <ol class="list">${SCAN.noTrade.map(x => `<li>${esc(x)}</li>`).join("")}</ol>
-        <hr class="rule">
-        <p class="muted"><strong>The rule that matters most tomorrow:</strong> if ${esc(SCAN.setups[0].sym)}
-        does not cleanly break ${rupee(SCAN.setups[0].keyLevel)} with confirmation, there is no
-        ${esc(SCAN.setups[0].sym)} trade. If it breaks the level but gaps far beyond the planned entry —
-        no trade, chase risk.</p>
+        <div class="card-head"><span class="card-title">What that means</span></div>
+        <dl class="kv">
+          <dt>Maximum loss per trade</dt><dd>${rupee(perTrade, 0)}</dd>
+          <dt>Worst day (every trade stopped)</dt><dd>${rupee(perTrade * s.maxTrades, 0)} · ${(s.riskPercent * s.maxTrades).toFixed(1)}%</dd>
+          <dt>Shares on a ₹10 stop distance</dt><dd>${Math.floor(perTrade / 10)}</dd>
+        </dl>
+        <p class="dim" style="margin-top:12px;font-size:12px">Position size = maximum loss ÷ stop distance (Part 18). A plan keeps the settings it was written with${p && p.context ? ` — the current one used ${rupee(p.context.capital,0)} at ${p.context.riskPercent}%` : ""}. Changes apply from the next brief.</p>
       </div>
     </div>`;
+}
+
+/* ========================= data health ========================= */
+state.health = { status:"idle", api:null, error:null };
+async function checkHealth(){
+  state.health.status = "loading"; render();
+  try {
+    const t0 = performance.now();
+    const res = await fetch(`${state.apiBase}/health`);
+    state.health.api = { ok: res.ok, ms: Math.round(performance.now() - t0), body: await res.json() };
+    state.health.status = "ok";
+  } catch (err){ state.health.status = "error"; state.health.error = err.message; state.health.api = null; }
+  await refreshAuthStatus();
+  render();
 }
 
 function viewHealth(){
-  const flags = SCAN.setups.filter(s => s.d.mismatch).map(s =>
-    ({ level:"warn", title:`${s.sym} score does not add up`,
-       body:`The nine weighted factors sum to ${s.d.computed}, but the scan reports ${s.reportedScore}. Caught automatically at load — the app uses the computed figure.` }));
-  const all = [...flags, ...SCAN.health];
+  const h = state.health, a = state.auth, ad = a.data || {};
+  if (h.status === "idle") setTimeout(checkHealth, 0);
+  const p = state.api.plan, c = p && p.context;
+  const row = (ok, title, body) => `<div class="health-row"><span class="ci ${ok === true ? "good" : ok === false ? "bad" : "unk"}">${ok === true ? "✓" : ok === false ? "✕" : "!"}</span><div><strong>${title}</strong><div class="muted" style="font-size:13px">${body}</div></div></div>`;
+  const expires = ad.expiresAt ? new Date(ad.expiresAt) : null;
+  const hoursLeft = expires ? (expires - Date.now()) / 3600000 : null;
+  const warnCount = p ? (p.setups || []).reduce((n, s) => n + (s.warnings || []).length, 0) : 0;
 
-  return `
-    <div class="page-head">
-      <div><h1>Data health</h1><p class="sub">What this scan knows, and what it only appears to know</p></div>
-      <div class="head-right"><span class="chip warn"><span class="glyph">!</span> ${all.length} open flags</span></div>
+  return `<div class="page-head"><div><h1>Data health</h1><p class="sub">Is everything the plan depends on working?</p></div>
+    <div class="head-right"><button class="btn" id="health-run">${h.status === "loading" ? `<span class="spin"></span>` : `<span class="glyph">↻</span>`} Check again</button></div></div>
+    <div class="card" style="margin-bottom:16px">
+      ${row(h.api ? h.api.ok : h.status === "error" ? false : null, "API server",
+        h.api ? `Reachable at <span class="num">${esc(state.apiBase)}</span> in ${h.api.ms} ms.` : h.status === "error" ? `Not reachable: ${esc(h.error)}. Start it with <span class="num">npm run dev</span>.` : "Checking…")}
+      ${row(a.status === "connected", "Dhan session",
+        a.status === "connected" ? `Connected as ${esc(ad.dhanClientId || "—")}.${expires ? ` Token expires ${expires.toLocaleString("en-IN", { dateStyle:"medium", timeStyle:"short" })}${hoursLeft < 3 ? " — <strong>log in again before the session</strong>" : ""}.` : ""}`
+        : "Not connected. Log in on the Connect page; tokens last 24 hours and a new login replaces the old one.")}
+      ${row(c ? true : p ? null : false, "Market data behind the plan",
+        c ? `${c.universeSize} stocks from ${niceDate(c.dataDate)}${c.scanMs ? `, scanned in ${Math.round(c.scanMs/1000)} s` : ""}. ${c.skipped.length} skipped.`
+          : p ? "This plan was saved before market data was kept with plans." : "No plan loaded.")}
+      ${row(p ? (warnCount ? null : true) : null, "Plan checks",
+        p ? (warnCount ? `${warnCount} warning${warnCount === 1 ? "" : "s"} across ${p.setups.filter(s => (s.warnings||[]).length).length} setups — see All setups.` : "No warnings on the current plan.") : "No plan loaded.")}
+      ${row(null, "Data subscription", "Historical and intraday data need Dhan's Data APIs subscription (₹499/month). Without it Dhan answers DH-902 and the scan fails.")}
     </div>
-
-    <div class="banner warn" style="margin-bottom:18px">
-      <span class="glyph">!</span>
-      <div><strong>Scan confidence: ${esc(SCAN.meta.confidence)}.</strong> ${esc(SCAN.meta.dataStatus)}
-      ${esc(SCAN.meta.note)}</div>
-    </div>
-
-    <div class="grid g2">
-      ${all.map(h => `<div class="card">
-        <div class="card-head">
-          <span class="chip ${h.level==="bad"?"bad":"warn"}"><span class="glyph">${h.level==="bad"?"✗":"!"}</span>${h.level==="bad"?"blocking":"degraded"}</span>
-          <span class="card-title" style="margin-left:4px">${esc(h.title)}</span>
-        </div>
-        <p class="muted">${esc(h.body)}</p>
-      </div>`).join("")}
-    </div>
-
-    <div class="section">
-      <div class="section-head"><h2>What the intraday feed must carry</h2></div>
-      <div class="card">
-        <p class="muted" style="margin-bottom:12px">Every entry condition in this scan depends on data the nightly run cannot contain. Without these five, the monitor cannot evaluate anything:</p>
-        <ul class="list">
-          <li><strong>VWAP</strong> — named in every setup's conditions</li>
-          <li><strong>5-minute candle closes</strong> — the trigger timeframe</li>
-          <li><strong>Per-bar volume</strong> — to judge “expansion versus recent 5-minute bars”</li>
-          <li><strong>Live Nifty level</strong> — for the 23,400 condition</li>
-          <li><strong>Live sector indices</strong> — for “pharma remains positive”</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-head"><h2>Sources referenced</h2></div>
-      <div class="card">
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${SCAN.sources.map(x => `<span class="chip">${esc(x)}</span>`).join("")}
-        </div>
-        <p class="dim" style="margin-top:12px;font-size:12px">
-          Where sources disagreed or lacked synchronised EOD data, the scan declined to treat the field as verified.
-          That discipline is why the flags above exist rather than clean-looking numbers.</p>
-      </div>
-    </div>`;
+    ${c && c.skipped.length ? `<div class="section-head"><h2>Skipped symbols</h2><span class="eyebrow">${c.skipped.length} · not in the brief</span></div>
+      <div class="table-wrap"><table class="dense"><thead><tr><th>Symbol</th><th>Reason</th></tr></thead>
+      <tbody>${c.skipped.map(s => `<tr><td><strong>${esc(s.symbol)}</strong></td><td class="muted" style="white-space:normal">${esc(s.reason)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
 }
 
-function planSummary(p){
-  const m = p.market || {};
-  const wl = p.watchlist || [];
-  const avoid = p.stocksToAvoid || [];
-  return `
-    ${p.noHighQualitySetup ? `<div class="banner warn" style="margin-bottom:14px"><span class="glyph">!</span>
-      <div><strong>No high-quality setup today.</strong> The analyst says to stay out rather than force a trade.
-      The names below are to watch, not to trade.</div></div>` : ""}
-    ${(p.warnings || []).map(w => `<div class="banner warn" style="margin-bottom:14px"><span class="glyph">!</span><div>${esc(w)}</div></div>`).join("")}
-
-    <div class="grid g2" style="margin-bottom:16px">
-      <div class="card">
-        <div class="card-head"><span class="card-title">Market</span>
-          ${m.bias ? `<span class="chip ${m.bias==="BULLISH"?"good":m.bias==="BEARISH"?"bad":"warn"}" style="margin-left:auto">${esc(m.strength || m.bias)}</span>` : ""}</div>
-        <p class="muted">${esc(m.read || "—")}</p>
-        ${(m.strongestSectors||[]).length ? `<p class="dim" style="margin-top:8px;font-size:12px">Strongest: ${esc(m.strongestSectors.join(", "))} · Weakest: ${esc((m.weakestSectors||[]).join(", "))}</p>` : ""}
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-title">Best long / best short</span></div>
-        <dl class="kv">
-          <dt>Best long</dt><dd style="font-family:var(--ui);text-align:right;max-width:40ch;color:var(--ink-2)">${esc(p.bestLong || "none")}</dd>
-          <dt>Best short</dt><dd style="font-family:var(--ui);text-align:right;max-width:40ch;color:var(--ink-2)">${esc(p.bestShort || "none")}</dd>
-          ${[0,1,2].map(i => `<dt>Top 3 · #${i+1}</dt><dd style="font-family:var(--ui);text-align:right;color:var(--ink-2)">${esc((p.top3||[])[i] || "—")}</dd>`).join("")}
-        </dl>
-        ${(p.top3||[]).length < 3 ? `<p class="dim" style="margin-top:8px;font-size:12px">ChatGPT named ${(p.top3||[]).length} of 3 — it found no other setup it rated highly enough.</p>` : ""}
-        ${p.selfCritique ? `<p class="dim" style="margin-top:10px;font-size:12px"><strong>Self-critique:</strong> ${esc(p.selfCritique)}</p>` : ""}
-      </div>
-    </div>
-
-    ${wl.length ? `<div class="section-head"><h2>Watchlist</h2><span class="eyebrow">Part 12 · as the analyst ranked it</span></div>
-      <div class="table-wrap" style="margin-bottom:18px"><table style="min-width:720px">
-        <thead><tr><th>#</th><th>Stock</th><th>Bias</th><th>Setup</th><th>Score</th><th>Key level</th><th>Note</th></tr></thead>
-        <tbody>${wl.map(w => `<tr>
-          <td class="rank">${w.rank ?? "—"}</td>
-          <td><strong>${esc(w.symbol)}</strong>${(p.top3||[]).includes(w.symbol) ? ` <span class="chip good">top 3</span>` : ""}
-            ${(w.warnings||[]).length ? `<br><span class="chip warn" style="margin-top:4px">${esc(w.warnings[0])}</span>` : ""}</td>
-          <td><span class="chip ${w.bias==="LONG"?"good":w.bias==="SHORT"?"bad":""}">${esc(w.bias)}</span></td>
-          <td class="muted">${esc(w.setup)}</td>
-          <td class="n">${w.score ?? "—"}</td>
-          <td class="n">${w.keyLevel != null ? rupee(w.keyLevel) : "—"}</td>
-          <td class="muted" style="white-space:normal;min-width:240px">${esc(w.note)}</td></tr>`).join("")}</tbody>
-      </table></div>` : ""}
-
-    <div class="section-head"><h2>Trade plans</h2><span class="eyebrow">Part 13 · top ${(p.setups||[]).length}</span></div>
-
-    ${avoid.length ? `` : ""}`;
-}
-
+/* ========================= plan views ========================= */
 function applyPlan(plan){
   state.api.rows = (plan.setups || []).map(rowFromApi);
   state.api.plan = plan;
@@ -2115,118 +1520,23 @@ function planView(p, rows){
 }
 
 function viewAll(){
-  const api = state.api;
-  const rows = state.source === "api" ? api.rows : SCAN.setups.map(rowFromScan);
-  const flagged = rows.filter(r => r.flags.length).length;
-  const loading = api.status === "loading";
-
-  const body = rows.length ? rows.map(r => `
-    <tr>
-      <td class="rank">${r.rank}</td>
-      <td><strong>${esc(r.sym)}</strong>${r.tier ? `<br><span class="chip ${r.tier==="High"?"good":"warn"}" style="margin-top:4px">${esc(r.tier)}</span>` : ""}</td>
-      <td><span class="chip ${r.bias==="LONG"?"good":"bad"}">${esc(r.bias)}</span></td>
-      <td class="muted">${esc(r.setupType)}</td>
-      <td class="n">${r.entryLabel}</td>
-      <td class="wrap">
-        <div class="cond-mini">${r.conditions.map(c => `
-          <span><span class="rq ${c.req?"req":""}">${c.req?"req":c.prose?"note":"pref"}</span>
-          <span class="${c.prose?"dim":"muted"}">${esc(c.text)}${c.kind && c.kind !== "manual"
-            ? ` <span class="dim" style="font-family:var(--mono);font-size:10px">[${c.kind}]</span>` : c.kind === "manual"
-            ? ` <span class="dim" style="font-family:var(--mono);font-size:10px">[manual]</span>` : ""}</span></span>`).join("")}
-        </div>
-      </td>
-      <td class="wrap muted">${esc(r.invalidation)}</td>
-      <td class="n" style="color:var(--bad)">${rupee(r.stop,0)}<br>
-        <span class="dim" style="font-size:11px">${r.risk!=null?rupee(r.risk,2)+" risk":""}</span></td>
-      <td>
-        <div class="tgt-stack">${r.targets.map(t => `
-          <span>${esc(t.label)} ${t.label2}</span>`).join("")}</div>
-      </td>
-      <td>
-        <div class="tgt-stack">${r.targets.map(t => `
-          <span class="p">${t.profit!=null?"+"+t.profit.toFixed(2)+"%":"—"}</span>`).join("")}</div>
-      </td>
-      <td class="n">${r.rrComputed!=null?r.rrComputed.toFixed(2)+":1":"—"}
-        ${r.rrReported!=null && Math.abs(r.rrReported-r.rrComputed)>0.05
-          ? `<br><span class="dim" style="font-size:11px">says ${r.rrReported.toFixed(2)}</span>`:""}</td>
-      <td class="n">${r.score!=null?r.score:"—"}<span class="dim">/100</span></td>
-      <td class="wrap">
-        <div class="flagcell">${r.flags.length
-          ? r.flags.map(f => `<span class="chip bad"><span class="glyph">✗</span>${esc(f)}</span>`).join("")
-          : `<span class="chip good"><span class="glyph">✓</span>checks pass</span>`}</div>
-      </td>
-    </tr>`).join("")
-    : `<tr><td colspan="12" class="dim" style="padding:26px 14px;white-space:normal">
-        ${state.source === "api"
-          ? "No setups loaded yet. Press Refresh to call the API."
-          : "No setups in the nightly scan."}</td></tr>`;
-
+  const api = state.api, p = api.plan;
+  const flagged = api.rows.filter(r => r.flags.length).length;
   return `
     <div class="page-head">
       <div>
         <h1>All setups</h1>
-        <p class="sub">${state.source === "api"
-          ? (api.plan && api.plan.source === "pasted"
-              ? `ChatGPT plan · brief <span class="num">${esc(api.plan.briefId)}</span>${api.at ? " · accepted " + api.at.toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}) : ""}`
-              : `Live from <span class="num">${esc(state.apiBase)}</span>${api.at ? " · fetched " + api.at.toLocaleTimeString("en-IN") : ""}`)
-          : `Nightly scan for the ${esc(SCAN.meta.forSession)} session`}</p>
+        <p class="sub">${p
+          ? `ChatGPT plan · brief <span class="num">${esc(p.briefId)}</span>${api.at ? " · accepted " + api.at.toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}) : ""}${p.context ? ` · for ${niceDate(nextWeekday(p.context.dataDate))}` : ""}`
+          : "The latest plan from the Analyst page"}</p>
       </div>
       <div class="head-right">
         ${flagged
-          ? `<span class="chip warn" title="Nothing was removed — these setups carry a note worth reading before you trade them. Open a row to see it."><span class="glyph">⚠</span> ${flagged} of ${rows.length} have warnings to review</span>`
-          : rows.length ? `<span class="chip good"><span class="glyph">✓</span> no warnings</span>` : ""}
+          ? `<span class="chip warn" title="Nothing was removed — these setups carry a note worth reading before you trade them. Open a row to see it."><span class="glyph">⚠</span> ${flagged} of ${api.rows.length} have warnings to review</span>`
+          : api.rows.length ? `<span class="chip good"><span class="glyph">✓</span> no warnings</span>` : ""}
       </div>
     </div>
-
-    ${state.source === "api" && api.plan && api.plan.source === "pasted" ? "" : `<div class="toolbar">
-      <div class="src-toggle" role="group" aria-label="Data source">
-        <button data-src="scan" aria-pressed="${state.source==="scan"}">Nightly scan</button>
-        <button data-src="api" aria-pressed="${state.source==="api"}">Live API</button>
-      </div>
-      <input class="input api-url" id="api-url" value="${esc(state.apiBase)}" aria-label="API base URL" spellcheck="false">
-      <button class="btn primary" id="refresh" ${loading?"disabled":""}>
-        ${loading ? `<span class="spin"></span> Fetching…`
-                  : `<span class="glyph">↻</span> Refresh`}
-      </button>
-      <span class="dim" style="font-size:12px">
-        POST /api/v1/intraday-analysis · capital ${rupee(state.capital,0)} · risk ${SCAN.risk.perTradePct}% · max ${SCAN.risk.maxTrades}
-      </span>
-    </div>`}
-
-    ${api.status === "error" ? `<div class="banner bad" style="margin-bottom:16px">
-      <span class="glyph">✗</span>
-      <div><strong>Request failed — ${esc(api.error)}</strong><div style="margin-top:6px;color:var(--ink-2)">${apiHint()}</div></div>
-    </div>` : ""}
-
-    ${state.source === "api" && api.plan ? planView(api.plan, rows) : `
-    <div class="table-wrap"><table style="min-width:1320px">
-      <thead><tr>
-        <th>#</th><th>Stock</th><th>Bias</th><th>Setup</th><th>Entry</th>
-        <th>Conditions</th><th>Invalidation</th><th>Stop</th><th>Targets</th>
-        <th>Profit %</th><th>R:R</th><th>Score</th><th>Checks</th>
-      </tr></thead>
-      <tbody>${body}</tbody>
-    </table></div>
-
-    ${state.source === "api" && api.plan && (api.plan.stocksToAvoid||[]).length ? `<div class="section">
-      <div class="section-head"><h2>Stocks to avoid</h2><span class="eyebrow">Part 19</span></div>
-      <div class="card"><ul class="list">${api.plan.stocksToAvoid.map(a =>
-        `<li><strong>${esc(a.symbol)}</strong> — ${esc(a.reason)}</li>`).join("")}</ul>
-        ${(api.plan.noTradeConditions||[]).length ? `<hr class="rule"><div class="eyebrow" style="margin-bottom:6px">No-trade conditions</div>
-          <ul class="list">${api.plan.noTradeConditions.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}</div>
-    </div>` : ""}
-
-    <div class="section">
-      <div class="section-head"><h2>What the checks column shows</h2></div>
-      <div class="card">
-        <p class="muted">Every setup the analyst wrote is shown — nothing is filtered out. The checks column only
-        points at things worth a second look: a stop on the wrong side of the entry, a target behind it, a symbol
-        with no exchange data (so it can't be monitored live), or a Part 18 position size larger than your capital,
-        which usually means a very tight stop.</p>
-        <p class="dim" style="margin-top:10px;font-size:12px">Risk-reward and position size are computed from the
-        analyst's own levels using the prompt's Part 18 formula. Neither is used to reject anything.</p>
-      </div>
-    </div>`}`;
+    ${p ? planView(p, api.rows) : noPlan()}`;
 }
 
 function viewConnect(){
@@ -2504,7 +1814,8 @@ function viewCompare(){
   const syms = new Map();
   const touch = sym => { if (!syms.has(sym)) syms.set(sym, plans.map(() => ({}))); return syms.get(sym); };
   plans.forEach((p, i) => {
-    (p.setups || []).forEach(x => Object.assign(touch(x.symbol)[i], { setup:x }));
+    (p.setups || []).forEach(x => Object.assign(touch(x.symbol)[i], { setup:x,
+      result: p.review ? ((p.review.setups.find(r => r.symbol === x.symbol) || {}).outcome || null) : null }));
     (p.watchlist || []).forEach(x => Object.assign(touch(x.symbol)[i], { watch:x }));
     (p.stocksToAvoid || []).forEach(x => Object.assign(touch(x.symbol)[i], { avoid:x }));
     (p.top3 || []).forEach((sym, k) => Object.assign(touch(sym)[i], { top:k + 1 }));
@@ -2548,7 +1859,7 @@ function viewCompare(){
   const runCell = c => {
     if (c.setup) {
       const t1 = c.setup.targets && c.setup.targets[0];
-      return `${mark("yes", `${c.top ? `<b class="cx-top">#${c.top}</b> ` : ""}${esc(c.setup.bias)} plan`)}
+      return `${mark("yes", `${c.top ? `<b class="cx-top">#${c.top}</b> ` : ""}${esc(c.setup.bias)} plan`)}${c.result ? ` ${statusChip(c.result)}` : ""}
         <div class="cx-lv">E ${fmt(c.setup.entryTrigger)} · SL ${fmt(c.setup.stopLoss)}${t1 != null ? ` · T1 ${fmt(t1)}` : ""}</div>
         ${c.avoid ? `<div class="cx-lv" style="color:var(--bad)">also listed to avoid</div>` : ""}`;
     }
@@ -2593,6 +1904,12 @@ function viewCompare(){
           ${group("Overview")}
           ${row("Market", topBias ? `${biasChip(topBias[0])} <span class="dim">${topBias[1]}/${n}</span>` : "—", p => biasChip(p.market && p.market.bias))}
           ${row("Trade plans", `${avgPlans.toFixed(1)} <span class="dim">avg</span>`, p => (p.setups||[]).length)}
+          ${plans.some(p => p.review) ? row("Result", "", p => {
+            if (!p.review) return `<span class="dim">not reviewed</span>`;
+            const taken = p.review.setups.filter(x => x.outcome.rMultiple != null);
+            const tot = taken.reduce((a, x) => a + x.outcome.rMultiple, 0);
+            return taken.length ? `<strong class="${rClass(tot)}">${signed(tot)}R</strong> <span class="dim">${taken.length}/${p.review.setups.length} triggered</span>` : `<span class="dim">none triggered</span>`;
+          }) : ""}
           ${[0,1,2].map(i => row(`Top 3 · #${i+1}`,
               top3Consensus[i] ? `<strong>${esc(top3Consensus[i].sym)}</strong> <span class="dim">top 3 in ${top3Consensus[i].inTop}/${n}</span>` : "—",
               p => (p.top3||[])[i] ? `<strong>${esc(p.top3[i])}</strong>` : `<span class="dim">—</span>`)).join("")}
@@ -2606,7 +1923,7 @@ function viewCompare(){
     </div>`;
 }
 
-const VIEWS = { desk:viewDesk, all:viewAll, compare:viewCompare, analyst:viewAnalyst, setups:viewSetups, market:viewMarket, rejected:viewRejected, risk:viewRisk, health:viewHealth, connect:viewConnect, logs:viewLogs };
+const VIEWS = { desk:viewDesk, all:viewAll, compare:viewCompare, analyst:viewAnalyst, market:viewMarket, track:viewTrack, risk:viewRisk, health:viewHealth, connect:viewConnect, logs:viewLogs };
 
 /* ========================= render + events ========================= */
 function render(){
@@ -2614,15 +1931,26 @@ function render(){
   const nAn = document.getElementById("nc-analyst");
   if (nAn) nAn.textContent = state.brief.data ? String(state.brief.data.universeCount) : "—";
   const nAll = document.getElementById("nc-all");
-  if (nAll) nAll.textContent = state.source === "api" ? state.api.rows.length : SCAN.setups.length;
+  if (nAll) nAll.textContent = state.api.plan ? String(state.api.rows.length) : "—";
+  const nConn = document.getElementById("nc-connect");
+  if (nConn) nConn.textContent = state.auth.status === "connected" ? "on" : "off";
+  const foot = document.getElementById("side-foot");
+  const pc = state.api.plan && state.api.plan.context;
+  if (foot) foot.innerHTML = pc
+    ? `<div>Data of ${niceDate(pc.dataDate)}</div><div class="dim" style="margin-top:2px">Plan for ${niceDate(nextWeekday(pc.dataDate))}</div>`
+    : `<div>${marketPhase().label}</div>`;
   const nCmp = document.getElementById("nc-compare");
   if (nCmp) nCmp.textContent = state.history ? String(state.history.length) : "—";
   document.querySelectorAll(".nav-item").forEach(b => {
     if (b.dataset.view === state.view) b.setAttribute("aria-current","page");
     else b.removeAttribute("aria-current");
   });
-  if (state.lastView !== state.view) window.scrollTo({ top:0 });
+  if (state.lastView !== state.view){
+    window.scrollTo({ top:0 });
+    try { localStorage.setItem("nw.view", state.view); } catch(e){}
+  }
   state.lastView = state.view;
+  scheduleMonitor();
 }
 
 document.addEventListener("click", e => {
@@ -2647,10 +1975,13 @@ document.addEventListener("click", e => {
     render(); return;
   }
   const nav = e.target.closest(".nav-item");
-  if (nav){ state.view = nav.dataset.view; render(); return; }
+  if (nav){ e.preventDefault(); state.view = nav.dataset.view; render(); return; }
 
-  const ph = e.target.closest("[data-phase]");
-  if (ph){ state.phase = ph.dataset.phase; render(); return; }
+  if (e.target.closest("#mon-run")){ runMonitor(); return; }
+  if (e.target.closest("#track-reload")){ loadTrack(); return; }
+  if (e.target.closest("#health-run")){ checkHealth(); return; }
+  const rv = e.target.closest("[data-review]");
+  if (rv){ reviewPlanNow(rv.dataset.review); return; }
 
   if (e.target.closest("#refresh")){ refreshFromApi(); return; }
   if (e.target.closest("#brief-gen")){ generateBrief(); return; }
@@ -2709,43 +2040,33 @@ document.addEventListener("click", e => {
   }
   if (e.target.closest("#log-clear")){ LOG.clear(); render(); return; }
 
-  const sr = e.target.closest("[data-src]");
-  if (sr){ state.source = sr.dataset.src; render(); return; }
-
-  const su = e.target.closest("[data-setup]");
-  if (su){
-    state.setupId = su.dataset.setup;
-    if (state.view === "desk" && state.phase !== "live") state.view = "setups";
-    render(); return;
-  }
 });
 
 document.addEventListener("keydown", e => {
   if (e.key === "Enter" || e.key === " "){
-    const row = e.target.closest("tr[data-setup]");
-    if (row){ e.preventDefault(); state.setupId = row.dataset.setup; state.view = "setups"; render(); }
+    const row = e.target.closest("tr[data-setup], tr[data-watch]");
+    if (row){ e.preventDefault(); row.click(); }
   }
 });
 
 document.addEventListener("input", e => {
-  if (e.target.id === "gap-in"){
-    state.gap = parseFloat(e.target.value) || 0;
+  const map = { "set-capital":"capital", "set-risk":"riskPercent", "set-max":"maxTrades" };
+  const key = map[e.target.id];
+  if (key){
+    const v = parseFloat(e.target.value);
+    if (!Number.isFinite(v) || v <= 0) return;
+    state.settings[key] = key === "maxTrades" ? Math.round(v) : v;
+    saveSettings();
+    const id = e.target.id, pos = e.target.selectionStart;
     render();
-    const el = document.getElementById("gap-in");
-    if (el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-  }
-  if (e.target.id === "cap"){
-    state.capital = Math.max(0, parseFloat(e.target.value) || 0);
-    try { localStorage.setItem("nw.capital", state.capital); } catch(err){}
-    const v = e.target.value;
-    render();
-    const el = document.getElementById("cap");
-    if (el){ el.value = v; el.focus(); }
+    const el = document.getElementById(id);
+    if (el){ el.focus(); try { el.setSelectionRange(pos, pos); } catch(err){} }
+    const msg = document.getElementById("set-msg"); if (msg) msg.textContent = "Saved";
   }
 });
 
 document.addEventListener("change", e => {
-  if (e.target.id === "sim"){ state.simulate = e.target.checked; render(); }
+  if (e.target.id === "mon-auto"){ state.monitor.auto = e.target.checked; scheduleMonitor(); return; }
 
   if (e.target.id === "hist-older"){ openPastPlan(e.target.value); return; }
   if (e.target.id === "brief-file"){
@@ -2774,23 +2095,24 @@ document.addEventListener("change", e => {
 });
 
 document.addEventListener("keydown", e => {
-  if (e.key === "Enter" && e.target.id === "api-url"){ e.preventDefault(); refreshFromApi(); }
+  if (e.key === "Enter" && e.target.id === "api-url"){ e.preventDefault(); refreshAuthStatus().then(render); }
 });
 
+try { const v = localStorage.getItem("nw.view"); if (v && VIEWS[v]) state.view = v; } catch(e){}
 log("info", "dashboard started", { apiBase: state.apiBase, hasSession: Boolean(state.session), origin: location.origin });
 refreshAuthStatus().then(async () => {
   if (state.view === "connect") render();
-  if (state.auth.status !== "connected" || state.api.plan) return;
+  if (state.auth.status === "disconnected"){ state.view = "connect"; render(); return; }
+  if (state.auth.status !== "connected"){ render(); return; }
+  if (state.api.plan) return;
   try {
     const [plan] = await Promise.all([api("/api/v1/analyst/latest"), loadPlanHistory()]);
-    if (plan && Array.isArray(plan.setups)){ applyPlan(plan); render(); }
+    if (plan && Array.isArray(plan.setups)) applyPlan(plan);
+    else if (state.view === "all") state.view = "analyst";
   } catch (err){ log("warn", "could not restore latest plan", { error: err.message }); }
+  render();
 });
 
-document.getElementById("nc-setups").textContent = SCAN.setups.length;
-document.getElementById("nc-all").textContent = SCAN.setups.length;
-document.getElementById("nc-rej").textContent = SCAN.avoid.length;
-document.getElementById("nc-health").textContent = SCAN.health.length + SCAN.setups.filter(s => s.d.mismatch).length;
 render();
 </script>
 

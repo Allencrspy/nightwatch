@@ -1,9 +1,10 @@
 {
   "name": "nightwatch-api",
   "version": "1.0.0",
-  "description": "NSE intraday analysis backend. Dhan OAuth login, real market data only, validated setup geometry.",
+  "description": "Nightwatch: night-before NSE intraday planning. Dhan data, your ChatGPT prompt, live monitoring and a track record.",
   "main": "dist/server.js",
   "scripts": {
+    "start:all": "node scripts/start-all.mjs",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",

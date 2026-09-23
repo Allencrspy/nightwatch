@@ -55,6 +55,10 @@ export interface PlanReview {
   reviewedAt: string;
   /** False while the session is still running; the review is then provisional. */
   final: boolean;
+  /** Time (IST, HH:MM) of the last bar Dhan returned, across the plan's setups. */
+  dataThrough: string | null;
+  /** True when the session is over but the bars stop before 15:25 — worth updating later. */
+  incomplete: boolean;
   setups: SetupReview[];
 }
 
@@ -169,7 +173,7 @@ export class PlanHistory {
       marketBias: r.plan.market.bias,
       setups: r.plan.setups.length,
       top3: r.plan.top3,
-      reviewed: Boolean(r.review?.final),
+      reviewed: Boolean(r.review?.final && !r.review?.incomplete),
       totalR: r.review
         ? Number(r.review.setups.reduce((a, x) => a + (x.outcome.rMultiple ?? 0), 0).toFixed(2))
         : null,
