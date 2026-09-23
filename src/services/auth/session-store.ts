@@ -90,6 +90,13 @@ export class SessionStore {
   // --- sessions ---
 
   public create(accessToken: string, dhanClientId: string, expiresAt: string | null): DhanSession {
+    // Dhan keeps one active token per client: a fresh login revokes the last.
+    // Left in place, the older session would still report itself connected
+    // until its nominal expiry while every call made with it failed.
+    for (const [id, existing] of this.sessions) {
+      if (existing.dhanClientId === dhanClientId) this.sessions.delete(id);
+    }
+
     const session: DhanSession = {
       id: crypto.randomBytes(32).toString('base64url'),
       encryptedToken: CryptoUtil.encrypt(accessToken),

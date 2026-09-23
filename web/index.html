@@ -973,20 +973,28 @@ function rowFromScan(s){
   });
 }
 
-/* Maps one setup from POST /api/v1/intraday-analysis (framework shape). */
+/* Maps one setup from the analysis response (framework shape). */
+const CHECK_LABEL = {
+  price_close_above: "price", price_close_below: "price",
+  above_vwap: "vwap", below_vwap: "vwap",
+  volume_expansion: "volume",
+  index_above: "index", index_below: "index",
+  sector_positive: "sector", sector_negative: "sector",
+  manual: "manual"
+};
+
 function rowFromApi(s, i){
   const long = s.bias === "LONG";
 
-  // The framework's own stage trail is the condition list: each stage that
-  // ran, what it concluded, and why. Nothing here is invented by the client.
-  const conds = [{
-    text:`5-minute close ${long ? "above" : "below"} ${rupee(s.entryTrigger)}`,
-    req:true
-  }];
-  if (s.volumeCharacter) conds.push({ text:s.volumeCharacter, req:false, prose:true });
-  (s.stages || [])
-    .filter(st => st.outcome === "DEMOTE")
-    .forEach(st => conds.push({ text:`${st.part}: ${st.note}`, req:false, prose:true }));
+  // Prefer the structured conditions the analyst returned — they are what the
+  // live monitor evaluates. Fall back to the trigger only for older plans.
+  const structured = Array.isArray(s.conditions) && s.conditions.length
+    ? s.conditions.map(c => ({
+        text: c.text,
+        req: c.required !== false,
+        kind: CHECK_LABEL[c.check && c.check.type] || "manual"
+      }))
+    : [{ text:`5-minute close ${long ? "above" : "below"} ${rupee(s.entryTrigger)}`, req:true, kind:"price" }];
 
   const bd = s.scoreBreakdown || null;
   const sum = bd ? ["priceStructure","volume","relativeStrength","breakoutQuality","trend","sector","liquidity","news"]
@@ -995,7 +1003,7 @@ function rowFromApi(s, i){
   return finish({
     src:"api", id:`api-${s.symbol}`, rank:i + 1, sym:s.symbol, bias:s.bias, setupType:s.setupType,
     entryLabel:rupee(s.entryTrigger), entryVal:s.entryTrigger,
-    conditions:conds,
+    conditions:structured,
     stages:s.stages || [],
     invalidation:s.invalidation,
     stop:s.stopLoss,
@@ -1822,7 +1830,9 @@ function viewAll(){
       <td class="wrap">
         <div class="cond-mini">${r.conditions.map(c => `
           <span><span class="rq ${c.req?"req":""}">${c.req?"req":c.prose?"note":"pref"}</span>
-          <span class="${c.prose?"dim":"muted"}">${esc(c.text)}</span></span>`).join("")}
+          <span class="${c.prose?"dim":"muted"}">${esc(c.text)}${c.kind && c.kind !== "manual"
+            ? ` <span class="dim" style="font-family:var(--mono);font-size:10px">[${c.kind}]</span>` : c.kind === "manual"
+            ? ` <span class="dim" style="font-family:var(--mono);font-size:10px">[manual]</span>` : ""}</span></span>`).join("")}
         </div>
       </td>
       <td class="wrap muted">${esc(r.invalidation)}</td>
@@ -1893,12 +1903,12 @@ function viewAll(){
         `<li><strong>${esc(d.symbol)}</strong> — ${esc(d.reason)}</li>`).join("")}</ul></div>
     </div>` : ""}
 
-    ${state.source === "api" && api.status === "ok" ? `<div class="banner warn" style="margin-bottom:16px">
-      <span class="glyph">!</span>
-      <div><strong>The API supplies no structured entry conditions.</strong> Only a trigger price and a
-      prose <span class="num">bullishScenario</span> come back per setup, so the conditions column shows the
-      trigger derived from <span class="num">entryTrigger</span> plus that sentence verbatim. VWAP, 5-minute
-      closes and per-bar volume are absent from the response, so none of these can be monitored intraday.</div>
+    ${state.source === "api" && api.status === "ok" && api.plan ? `<div class="banner" style="margin-bottom:16px">
+      <span class="glyph">○</span>
+      <div>Plan from brief <span class="num">${esc((api.plan.promptVersion || "rule engine"))}</span>
+      · analyst <span class="num">${esc(api.plan.analystModel || api.plan.analyst)}</span>.
+      Conditions marked <strong>req</strong> gate the entry; the live monitor evaluates them against
+      5-minute closes, VWAP, volume, index and sector once the session is open.</div>
     </div>` : ""}
 
     <div class="table-wrap"><table style="min-width:1320px">
@@ -2051,7 +2061,7 @@ function viewAnalyst(){
         <div class="step-n">2</div>
         <div class="step-body">
           <h3>Copy it into your assistant</h3>
-          <p class="muted">Paste into ChatGPT or Claude and send. The prompt tells it to answer in JSON — and to say plainly when nothing is worth trading.</p>
+          <p class="muted">Paste into <strong>a new</strong> ChatGPT or Claude conversation each night — an old one can hand back yesterday's reply. The brief asks for a file named with tonight's brief id, so replies can't be mixed up.</p>
           ${d ? `
             <div class="toolbar" style="margin-top:12px;margin-bottom:10px">
               <button class="btn" id="brief-copy"><span class="glyph">⧉</span> ${b.copied ? "Copied" : "Copy brief"}</button>

@@ -18,11 +18,17 @@ import { logger } from '../utils/logger.js';
  * clients substitute into JSON, which is the single most common way a reply
  * arrives unparseable.
  */
-const DELIVERY_INSTRUCTIONS = `## HOW TO DELIVER YOUR ANSWER
+function deliveryInstructions(briefId: string): string {
+  return `## HOW TO DELIVER YOUR ANSWER
 
-Save the JSON object as a downloadable file named \`nightwatch-reply.json\`, containing the JSON and nothing else — no commentary before or after, no code fences. I will upload that file directly.
+This is brief \`${briefId}\`. Make \`"briefId": "${briefId}"\` the first field of your JSON, so the reply can be matched to the facts you analysed.
 
-If you cannot produce a file, print the raw JSON instead, and use only straight quotes (") — not typographic quotes (" ") — or it will not parse.`;
+Save the JSON object as a downloadable file named \`nightwatch-reply-${briefId}.json\`, containing the JSON and nothing else — no commentary before or after, no code fences. I will upload that file directly.
+
+If you cannot produce a file, print the raw JSON instead, and use only straight quotes (") — not typographic quotes (" ") — or it will not parse.
+
+Analyse only the candidates in the fact sheet below. If this conversation contains an earlier brief, ignore it entirely: tonight's candidates are different.`;
+}
 
 const AnalystResponseSchema = z.object({
   briefId: z.string().min(1),
@@ -107,7 +113,7 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
         pasteText: [
           prompt,
           '---',
-          DELIVERY_INSTRUCTIONS,
+          deliveryInstructions(brief.id),
           '---',
           'FACT SHEET (use only these numbers):',
           JSON.stringify(factSheet, null, 2),
@@ -130,6 +136,36 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const out = extractJson(response);
+    const briefSymbols = brief.input.scoredCandidates.map((sc) => sc.candidate.quote.symbol);
+    const replySymbols: string[] = (Array.isArray(out.setups) ? out.setups : [])
+      .map((x: any) => String(x?.symbol ?? ''))
+      .filter(Boolean);
+
+    // A reply that names its brief can be checked directly.
+    if (typeof out.briefId === 'string' && out.briefId !== briefId) {
+      throw new AppError(
+        409,
+        'WRONG_BRIEF',
+        `This reply was written for brief ${out.briefId}, but the current brief is ${briefId}. ` +
+          'Upload the reply that matches tonight\'s brief.'
+      );
+    }
+
+    // One that does not can still be recognised as stale: if it proposes
+    // setups and not one of them is among tonight's candidates, it is almost
+    // certainly an earlier night's reply. Accepting it would record an empty
+    // plan and leave the monitor watching nothing, with no sign anything went
+    // wrong.
+    if (replySymbols.length && !replySymbols.some((sym) => briefSymbols.includes(sym))) {
+      throw new AppError(
+        409,
+        'STALE_REPLY',
+        `This reply analyses ${replySymbols.join(', ')} — none of which are in tonight's brief ` +
+          `(${briefSymbols.slice(0, 6).join(', ')}${briefSymbols.length > 6 ? `, +${briefSymbols.length - 6} more` : ''}). ` +
+          'It looks like a reply to an earlier brief. Paste tonight\'s brief into a new chat and upload that reply.'
+      );
+    }
+
     const plan = analyst.mergeAnalystOutput(out, brief.input, brief.base, {
       model: typeof out.model === 'string' ? out.model : 'pasted',
       sources: Array.isArray(out.sources) ? out.sources.filter((s: any) => s?.url) : [],
