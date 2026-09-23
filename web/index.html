@@ -378,6 +378,13 @@ tr.wl-row{cursor:pointer}
 tr.wl-row.open .clamp1{-webkit-line-clamp:unset}
 @media (max-width:1000px){.pv-strip{grid-template-columns:1fr 1fr}.pv-grid,.pv-cols{grid-template-columns:1fr}}
 @media (max-width:560px){.pv-strip{grid-template-columns:1fr}}
+
+.hist-bar{display:flex;gap:6px;align-items:stretch;overflow-x:auto;margin-bottom:16px;padding-bottom:2px}
+.hist-tab{display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 12px;color:var(--ink-2);font:inherit;font-size:13px;cursor:pointer;text-align:left}
+.hist-tab:hover{border-color:var(--line-strong);color:var(--ink)}
+.hist-tab[aria-pressed="true"]{border-color:var(--accent-edge);background:var(--accent-wash);color:var(--ink)}
+.hist-meta{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+.hist-older{flex:none;width:auto;min-width:150px}
 </style>
 <style>
   html,body{height:100%}
@@ -1079,13 +1086,9 @@ async function submitAnalystResponse(text){
       method:"POST",
       body:{ briefId: state.brief.data ? state.brief.data.briefId : undefined, response: text }
     });
-    state.api.rows = (plan.setups || []).map(rowFromApi);
-    state.api.plan = plan;
-    state.api.meta = plan.market || null;
-    state.api.at = new Date();
-    state.api.status = "ok";
-    state.source = "api";
+    applyPlan(plan);
     state.view = "all";
+    await loadPlanHistory();
     log("ok", "pasted plan accepted", {
       setups: plan.setups.length,
       watchlist: (plan.watchlist || []).length,
@@ -1889,6 +1892,51 @@ function planSummary(p){
     ${avoid.length ? `` : ""}`;
 }
 
+function applyPlan(plan){
+  state.api.rows = (plan.setups || []).map(rowFromApi);
+  state.api.plan = plan;
+  state.api.meta = plan.market || null;
+  state.api.at = new Date(plan.acceptedAt || Date.now());
+  state.api.status = "ok";
+  state.source = "api";
+  state.openSetup = null; state.openWatch = null;
+}
+
+async function loadPlanHistory(){
+  try { state.history = await api("/api/v1/analyst/plans"); }
+  catch (err){ log("warn", "could not load plan history", { error: err.message }); }
+}
+
+async function openPastPlan(briefId){
+  if (!briefId || (state.api.plan && state.api.plan.briefId === briefId)) return;
+  state.historyLoading = briefId; render();
+  try { applyPlan(await api(`/api/v1/analyst/plans/${encodeURIComponent(briefId)}`)); }
+  catch (err){ log("error", "could not open past plan", { briefId, error: err.message }); }
+  state.historyLoading = null; render();
+}
+
+function historyBar(){
+  const list = state.history || [];
+  if (list.length < 2) return "";
+  const active = state.api.plan && state.api.plan.briefId;
+  const when = iso => new Date(iso).toLocaleString("en-IN", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit", hour12:false });
+  const TABS = 6;
+  const tab = (h, i) => `<button class="hist-tab" data-hist="${esc(h.briefId)}" aria-pressed="${h.briefId===active}"
+      title="Brief ${esc(h.briefId)} · ${h.universeSize} stocks · top 3: ${esc((h.top3||[]).join(", ") || "none")}">
+      <span>${i === 0 ? "Latest" : esc(when(h.acceptedAt))}</span>
+      <span class="hist-meta">${i === 0 ? esc(when(h.acceptedAt)) + " · " : ""}${h.setups} setup${h.setups===1?"":"s"}${h.universeSize > 100 ? " · +non-F&O" : ""}</span>
+      ${state.historyLoading === h.briefId ? `<span class="spin"></span>` : ""}
+    </button>`;
+  const older = list.slice(TABS);
+  return `<div class="hist-bar" role="tablist" aria-label="Past analyses">
+    ${list.slice(0, TABS).map(tab).join("")}
+    ${older.length ? `<select class="input hist-older" id="hist-older" aria-label="Older analyses">
+      <option value="">Older (${older.length})…</option>
+      ${older.map(h => `<option value="${esc(h.briefId)}" ${h.briefId===active?"selected":""}>${esc(when(h.acceptedAt))} · ${h.setups} setups</option>`).join("")}
+    </select>` : ""}
+  </div>`;
+}
+
 function movePct(from, to){ return from ? ((to - from) / from) * 100 : null; }
 const signPct = v => v == null ? "" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
 
@@ -1939,6 +1987,7 @@ function planDetail(r){
 
 function planView(p, rows){
   const m = p.market || {};
+  const bar = historyBar();
   const wl = p.watchlist || [];
   const top3 = p.top3 || [];
   const open = state.openSetup;
@@ -1966,7 +2015,11 @@ function planView(p, rows){
     ${isOpen ? `<tr class="pv-detail"><td colspan="12">${planDetail(r)}</td></tr>` : ""}`;
   }).join("");
 
+  const latest = (state.history || [])[0];
   return `
+    ${bar}
+    ${latest && latest.briefId !== p.briefId ? `<div class="banner" style="margin-bottom:14px"><span class="glyph">↺</span>
+      <div>You are viewing a past analysis. <a href="#" data-hist="${esc(latest.briefId)}">Back to the latest</a></div></div>` : ""}
     ${p.noHighQualitySetup ? `<div class="banner warn" style="margin-bottom:14px"><span class="glyph">!</span>
       <div><strong>No high-quality setup today.</strong> The analyst says to stay out rather than force a trade.</div></div>` : ""}
     ${(p.warnings || []).map(w => `<div class="banner warn" style="margin-bottom:14px"><span class="glyph">!</span><div>${esc(w)}</div></div>`).join("")}
@@ -2389,6 +2442,8 @@ function render(){
 }
 
 document.addEventListener("click", e => {
+  const hist = e.target.closest("[data-hist]");
+  if (hist){ e.preventDefault(); openPastPlan(hist.dataset.hist); return; }
   const setupRow = e.target.closest("tr[data-setup]");
   if (setupRow){
     const sym = setupRow.dataset.setup;
@@ -2502,6 +2557,7 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   if (e.target.id === "sim"){ state.simulate = e.target.checked; render(); }
 
+  if (e.target.id === "hist-older"){ openPastPlan(e.target.value); return; }
   if (e.target.id === "brief-file"){
     const file = e.target.files && e.target.files[0];
     e.target.value = ""; // so choosing the same file again still fires
@@ -2536,16 +2592,8 @@ refreshAuthStatus().then(async () => {
   if (state.view === "connect") render();
   if (state.auth.status !== "connected" || state.api.plan) return;
   try {
-    const plan = await api("/api/v1/analyst/latest");
-    if (plan && Array.isArray(plan.setups)){
-      state.api.rows = plan.setups.map(rowFromApi);
-      state.api.plan = plan;
-      state.api.meta = plan.market || null;
-      state.api.at = new Date(plan.acceptedAt || Date.now());
-      state.api.status = "ok";
-      state.source = "api";
-      render();
-    }
+    const [plan] = await Promise.all([api("/api/v1/analyst/latest"), loadPlanHistory()]);
+    if (plan && Array.isArray(plan.setups)){ applyPlan(plan); render(); }
   } catch (err){ log("warn", "could not restore latest plan", { error: err.message }); }
 });
 

@@ -8,3 +8,5 @@ coverage/
 .sessions.json
 .sessions.test.json
 .briefs.json
+.plan-history.json
+.plan-history.test.json

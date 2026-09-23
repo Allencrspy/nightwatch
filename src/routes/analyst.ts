@@ -9,6 +9,7 @@ import { requireSession } from '../plugins/require-session.js';
 import { AppError } from '../utils/errors.js';
 import { buildAnalystInput } from '../services/scanner/run-scan.js';
 import { logger } from '../utils/logger.js';
+import { PlanHistory } from '../services/ai/plan-history.js';
 
 const AnalystResponseSchema = z.object({
   /** Optional: when absent (e.g. after a page reload) the reply's own briefId is used. */
@@ -135,6 +136,7 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     BriefStore.attachPlan(briefId, plan);
+    PlanHistory.add({ briefId, acceptedAt: plan.acceptedAt, universeSize: brief.input.universe?.length ?? 0, plan });
     logger.info(
       { briefId, watchlist: plan.watchlist.length, setups: plan.setups.length,
         warnings: plan.setups.reduce((a, s) => a + s.warnings.length, 0) },
@@ -150,7 +152,17 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
 
   /** The most recent accepted plan, so a page reload does not lose it. */
   fastify.get('/api/v1/analyst/latest', { preHandler: requireSession }, async (_request, reply) => {
-    const brief = BriefStore.latestWithPlan();
-    return reply.send({ success: true, data: brief?.plan ?? null });
+    return reply.send({ success: true, data: PlanHistory.latest()?.plan ?? BriefStore.latestWithPlan()?.plan ?? null });
+  });
+
+  /** Every past plan, newest first, as a short summary each. */
+  fastify.get('/api/v1/analyst/plans', { preHandler: requireSession }, async (_request, reply) => {
+    return reply.send({ success: true, data: PlanHistory.list() });
+  });
+
+  fastify.get<{ Params: { briefId: string } }>('/api/v1/analyst/plans/:briefId', { preHandler: requireSession }, async (request, reply) => {
+    const rec = PlanHistory.get(request.params.briefId);
+    if (!rec) throw new AppError(404, 'PLAN_NOT_FOUND', 'No saved plan for that brief.');
+    return reply.send({ success: true, data: rec.plan });
   });
 };

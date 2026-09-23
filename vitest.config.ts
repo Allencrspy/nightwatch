@@ -24,6 +24,7 @@ export default defineConfig({
       OPENAI_API_KEY: '',
       // Never touch the real session file from a test run.
       SESSION_STORE_PATH: '.sessions.test.json',
+      PLAN_HISTORY_PATH: '.plan-history.test.json',
     },
   },
 });
