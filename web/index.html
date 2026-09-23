@@ -385,6 +385,15 @@ tr.wl-row.open .clamp1{-webkit-line-clamp:unset}
 .hist-tab[aria-pressed="true"]{border-color:var(--accent-edge);background:var(--accent-wash);color:var(--ink)}
 .hist-meta{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
 .hist-older{flex:none;width:auto;min-width:150px}
+
+.cmp td{vertical-align:top}
+.cmp-cell{min-width:190px}
+.cmp-lv{font-family:var(--mono);font-size:11px;color:var(--ink-2);margin-top:4px}
+.cmp-ov th:first-child{color:var(--ink-3);font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+.cmp-ov td{white-space:normal;vertical-align:top;min-width:180px}
+.agree{display:flex;align-items:center;gap:8px;font-size:12px;white-space:nowrap}
+.agree-bar{width:56px;height:6px;border-radius:3px;background:var(--line);overflow:hidden;flex:none}
+.agree-bar i{display:block;height:100%;background:var(--accent)}
 </style>
 <style>
   html,body{height:100%}
@@ -416,6 +425,10 @@ tr.wl-row.open .clamp1{-webkit-line-clamp:unset}
       <button class="nav-item" data-view="all">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17"/></svg>
         All setups <span class="nav-count" id="nc-all">2</span>
+      </button>
+      <button class="nav-item" data-view="compare">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v16M16 4v16M3.5 8.5h9M11.5 15.5h9"/></svg>
+        Compare <span class="nav-count" id="nc-compare">—</span>
       </button>
       <button class="nav-item" data-view="analyst">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5c0 4.7-3.8 8.5-8.5 8.5a8.4 8.4 0 0 1-3.8-.9L4 20.5l1.4-4.2A8.5 8.5 0 0 1 12 3.5z"/></svg>
@@ -2425,7 +2438,118 @@ function viewLogs(){
     </div>`;
 }
 
-const VIEWS = { desk:viewDesk, all:viewAll, analyst:viewAnalyst, setups:viewSetups, market:viewMarket, rejected:viewRejected, risk:viewRisk, health:viewHealth, connect:viewConnect, logs:viewLogs };
+/* =========================================================================
+   COMPARE — several analyst runs side by side, to see what is consistent.
+   ========================================================================= */
+async function ensureCompare(){
+  if (!state.history) await loadPlanHistory();
+  const list = state.history || [];
+  if (!state.compareIds) state.compareIds = list.slice(0, 4).map(h => h.briefId);
+  state.planCache = state.planCache || {};
+  const missing = state.compareIds.filter(id => !state.planCache[id]);
+  if (!missing.length) return;
+  state.compareLoading = true; render();
+  await Promise.all(missing.map(id => api(`/api/v1/analyst/plans/${encodeURIComponent(id)}`)
+    .then(p => { state.planCache[id] = p; })
+    .catch(err => log("error", "could not load plan for compare", { id, error: err.message }))));
+  state.compareLoading = false; render();
+}
+
+function viewCompare(){
+  const list = state.history || [];
+  if (!state.history || !state.compareIds) { ensureCompare(); return `<div class="page-head"><div><h1>Compare</h1></div></div><p class="dim"><span class="spin"></span> Loading…</p>`; }
+  const when = iso => new Date(iso).toLocaleString("en-IN", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit", hour12:false });
+  const ids = state.compareIds.filter(id => list.some(h => h.briefId === id));
+  const plans = ids.map(id => state.planCache && state.planCache[id]).filter(Boolean);
+  const head = list.filter(h => ids.includes(h.briefId));
+
+  const picker = `<div class="hist-bar">${list.map(h => `
+    <button class="hist-tab" data-cmp="${esc(h.briefId)}" aria-pressed="${ids.includes(h.briefId)}">
+      <span>${esc(when(h.acceptedAt))}</span>
+      <span class="hist-meta">${h.setups} setup${h.setups===1?"":"s"}${h.universeSize > 100 ? " · +non-F&O" : ""}</span>
+    </button>`).join("")}</div>`;
+
+  const pageHead = `<div class="page-head"><div><h1>Compare</h1>
+    <p class="sub">Pick two or more runs. Stocks are ranked by how many runs made them a trade plan.</p></div></div>`;
+
+  if (list.length < 2) return pageHead + `<div class="card"><p class="muted">Upload at least two ChatGPT replies to compare them.</p></div>`;
+  if (state.compareLoading || plans.length < ids.length) return pageHead + picker + `<p class="dim"><span class="spin"></span> Loading plans…</p>`;
+  if (plans.length < 2) return pageHead + picker + `<div class="card"><p class="muted">Select at least two runs above.</p></div>`;
+
+  // Every stock any run mentioned, with its role in each run.
+  const syms = new Map();
+  const touch = sym => { if (!syms.has(sym)) syms.set(sym, plans.map(() => ({}))); return syms.get(sym); };
+  plans.forEach((p, i) => {
+    (p.setups || []).forEach(x => Object.assign(touch(x.symbol)[i], { setup:x }));
+    (p.watchlist || []).forEach(x => Object.assign(touch(x.symbol)[i], { watch:x }));
+    (p.stocksToAvoid || []).forEach(x => Object.assign(touch(x.symbol)[i], { avoid:x }));
+    (p.top3 || []).forEach((sym, k) => Object.assign(touch(sym)[i], { top:k + 1 }));
+  });
+  const n = plans.length;
+  const rows = [...syms.entries()].map(([sym, cells]) => {
+    const asSetup = cells.filter(c => c.setup).length;
+    const inTop = cells.filter(c => c.top).length;
+    const onWatch = cells.filter(c => c.watch && !c.setup).length;
+    const avoided = cells.filter(c => c.avoid).length;
+    const biases = new Set(cells.map(c => (c.setup && c.setup.bias) || (c.watch && c.watch.bias)).filter(b => b && b !== "—"));
+    const entries = cells.filter(c => c.setup).map(c => c.setup.entryTrigger);
+    const stops = cells.filter(c => c.setup).map(c => c.setup.stopLoss);
+    return { sym, cells, asSetup, inTop, onWatch, avoided, biases, entries, stops,
+      rank: asSetup * 100 + inTop * 10 + onWatch - avoided * 5 };
+  }).sort((a, b) => b.rank - a.rank || a.sym.localeCompare(b.sym));
+
+  const spread = v => {
+    if (!v.length) return "—";
+    const lo = Math.min(...v), hi = Math.max(...v);
+    return lo === hi ? rupee(lo) : `${rupee(lo)}–${fmt(hi)}<span class="sub-n">${(((hi - lo) / lo) * 100).toFixed(1)}% apart</span>`;
+  };
+  const cell = c => {
+    if (!c.setup && !c.watch && !c.avoid && !c.top) return `<td class="cmp-cell dim">—</td>`;
+    const b = (c.setup && c.setup.bias) || (c.watch && c.watch.bias) || "";
+    const role = c.top ? `<span class="chip warn">#${c.top}</span>`
+      : c.setup ? `<span class="chip good">Plan</span>`
+      : c.avoid ? `<span class="chip bad">Avoid</span>`
+      : `<span class="chip">Watch</span>`;
+    return `<td class="cmp-cell">
+      <div style="display:flex;gap:6px;align-items:center">${role}${b ? `<span class="dim" style="font-size:11px">${esc(b)}</span>` : ""}${c.avoid && (c.setup || c.top) ? `<span class="chip bad" title="${esc(c.avoid.reason)}">also avoid</span>` : ""}</div>
+      ${c.setup ? `<div class="cmp-lv">E ${fmt(c.setup.entryTrigger)} · SL ${fmt(c.setup.stopLoss)}${c.setup.targets && c.setup.targets[0] ? ` · T1 ${fmt(c.setup.targets[0])}` : ""}</div>` : ""}
+      ${!c.setup && c.avoid ? `<div class="cmp-lv clamp1" title="${esc(c.avoid.reason)}">${esc(c.avoid.reason)}</div>` : ""}
+    </td>`;
+  };
+
+  const ov = (label, f) => `<tr><th>${label}</th>${plans.map(p => `<td>${f(p)}</td>`).join("")}</tr>`;
+
+  return `${pageHead}${picker}
+    <div class="section-head"><h2>Runs</h2><span class="eyebrow">${n} selected</span></div>
+    <div class="table-wrap" style="margin-bottom:22px"><table class="dense cmp-ov" style="min-width:${200 + n * 200}px">
+      <thead><tr><th></th>${head.map(h => `<th>${esc(when(h.acceptedAt))}<span class="sub-n">${esc(h.briefId)}</span></th>`).join("")}</tr></thead>
+      <tbody>
+        ${ov("Universe", p => { const h = list.find(x => x.briefId === p.briefId); return h ? `${h.universeSize} stocks` : "—"; })}
+        ${ov("Market", p => p.market && p.market.bias ? `<span class="chip ${p.market.bias==="BULLISH"?"good":p.market.bias==="BEARISH"?"bad":"warn"}">${esc(p.market.strength || p.market.bias)}</span>` : "—")}
+        ${ov("Trade plans", p => (p.setups||[]).length)}
+        ${ov("Top 3", p => (p.top3||[]).length ? (p.top3).map((x,i) => `<strong>${esc(x)}</strong>`).join(" · ") : "—")}
+        ${ov("Best long", p => `<span class="clamp2 muted" title="${esc(p.bestLong||"")}">${esc(p.bestLong || "none")}</span>`)}
+        ${ov("Best short", p => `<span class="clamp2 muted" title="${esc(p.bestShort||"")}">${esc(p.bestShort || "none")}</span>`)}
+      </tbody>
+    </table></div>
+
+    <div class="section-head"><h2>Stocks across runs</h2><span class="eyebrow">${rows.length} named · most consistent first</span></div>
+    <div class="table-wrap"><table class="dense cmp" style="min-width:${360 + n * 210}px">
+      <thead><tr><th>Stock</th><th>Agreement</th>${head.map(h => `<th>${esc(when(h.acceptedAt))}</th>`).join("")}<th class="n">Entry range</th><th class="n">Stop range</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td><strong>${esc(r.sym)}</strong></td>
+        <td style="white-space:normal">
+          <div class="agree"><span class="agree-bar"><i style="width:${(r.asSetup / n) * 100}%"></i></span><span>${r.asSetup}/${n} plans</span></div>
+          <span class="sub-n" style="font-family:var(--ui)">${[r.inTop ? `top 3 in ${r.inTop}` : "", r.onWatch ? `watch in ${r.onWatch}` : "", r.avoided ? `avoid in ${r.avoided}` : "", r.biases.size > 1 ? "⚠ bias differs" : ""].filter(Boolean).join(" · ")}</span>
+        </td>
+        ${r.cells.map(cell).join("")}
+        <td class="n">${spread(r.entries)}</td>
+        <td class="n">${spread(r.stops)}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>`;
+}
+
+const VIEWS = { desk:viewDesk, all:viewAll, compare:viewCompare, analyst:viewAnalyst, setups:viewSetups, market:viewMarket, rejected:viewRejected, risk:viewRisk, health:viewHealth, connect:viewConnect, logs:viewLogs };
 
 /* ========================= render + events ========================= */
 function render(){
@@ -2434,14 +2558,23 @@ function render(){
   if (nAn) nAn.textContent = state.brief.data ? String(state.brief.data.universeCount) : "—";
   const nAll = document.getElementById("nc-all");
   if (nAll) nAll.textContent = state.source === "api" ? state.api.rows.length : SCAN.setups.length;
+  const nCmp = document.getElementById("nc-compare");
+  if (nCmp) nCmp.textContent = state.history ? String(state.history.length) : "—";
   document.querySelectorAll(".nav-item").forEach(b => {
     if (b.dataset.view === state.view) b.setAttribute("aria-current","page");
     else b.removeAttribute("aria-current");
   });
-  window.scrollTo({ top:0 });
+  if (state.lastView !== state.view) window.scrollTo({ top:0 });
+  state.lastView = state.view;
 }
 
 document.addEventListener("click", e => {
+  const cmp = e.target.closest("[data-cmp]");
+  if (cmp){
+    const id = cmp.dataset.cmp, ids = state.compareIds || [];
+    state.compareIds = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id];
+    render(); ensureCompare(); return;
+  }
   const hist = e.target.closest("[data-hist]");
   if (hist){ e.preventDefault(); openPastPlan(hist.dataset.hist); return; }
   const setupRow = e.target.closest("tr[data-setup]");
