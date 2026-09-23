@@ -159,6 +159,35 @@ export function readPlan(
       }
     }
 
+    // A level that matches another stock's figure but none of this stock's
+    // is almost always a misread row in the table.
+    if (row) {
+      const LEVELS: Array<keyof UniverseRow> = ['close', 'prevClose', 'open', 'high', 'low',
+        'swingHigh20', 'swingLow20', 'swingHigh50', 'swingLow50', 'ema20', 'ema50', 'ema200', 'high52w', 'low52w'];
+      const labelled: Array<[string, number | null]> = [
+        ['entry', entry], ['stop', stop], ...targets.map((t: number, i: number): [string, number] => [`T${i + 1}`, t]),
+      ];
+      for (const [label, v] of labelled) {
+        if (v === null) continue;
+        const own = LEVELS.some((k) => Math.abs((row[k] as number) - v) < 0.011);
+        if (own) continue;
+        const other = ctx.universe.find((u) => u.symbol !== symbol &&
+          LEVELS.some((k) => Math.abs((u[k] as number) - v) < 0.011));
+        if (other) {
+          w.push(`${label} ${v} matches ${other.symbol}'s data, not ${symbol}'s — it may have been read from the wrong row.`);
+        }
+      }
+
+      if (entry !== null) {
+        if (b === 'LONG' && entry < row.close) {
+          w.push(`Long trigger ${entry} is already below today's close of ${row.close}, so it would be hit at the open.`);
+        }
+        if (b === 'SHORT' && entry > row.close) {
+          w.push(`Short trigger ${entry} is already above today's close of ${row.close}, so it would be hit at the open.`);
+        }
+      }
+    }
+
     if (row && entry !== null && Math.abs(entry - row.close) / row.close > 0.1) {
       w.push(`Entry ${entry} is more than 10% from today's close of ${row.close} — check it refers to the right stock.`);
     }

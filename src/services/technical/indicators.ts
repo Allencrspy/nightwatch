@@ -254,8 +254,10 @@ export class TechnicalIndicatorService {
     const swingHigh50 = recent50.length ? Math.max(...recent50.map((c) => c.high)) : swingHigh20;
     const swingLow50 = recent50.length ? Math.min(...recent50.map((c) => c.low)) : swingLow20;
     const prior = candles[candles.length - 2] ?? lastCandle;
-    const high52w = known.week52High ?? derived.high52w;
-    const low52w = known.week52Low ?? derived.low52w;
+    // Dhan's 52-week figures can lag a day: a stock that set a new extreme
+    // today reported a 52-week high below today's own high.
+    const high52w = Math.max(known.week52High ?? derived.high52w, lastCandle.high);
+    const low52w = Math.min(known.week52Low ?? derived.low52w, lastCandle.low);
     // Only "incomplete" when the figures had to be derived from short history.
     const yearWindowIncomplete =
       known.week52High == null || known.week52Low == null ? derived.yearWindowIncomplete : false;

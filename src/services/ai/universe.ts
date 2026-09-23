@@ -92,12 +92,15 @@ const COLUMNS: Array<[keyof UniverseRow, string]> = [
  */
 export function universeTable(rows: UniverseRow[]): string {
   const sorted = [...rows].sort((a, b) => b.changePct - a.changePct);
-  const header = COLUMNS.map(([, h]) => h).join('\t');
+  // The symbol is repeated at the end of every row. With 26 columns, reading
+  // a value from the neighbouring line is easy — one reply took a stop from
+  // SAIL's row for TATASTEEL — and the bookend makes the row boundary explicit.
+  const header = [...COLUMNS.map(([, h]) => h), 'symbol'].join('\t');
   const body = sorted.map((row) =>
-    COLUMNS.map(([k]) => {
+    [...COLUMNS.map(([k]) => {
       const v = row[k];
       return v === null || v === undefined ? '—' : String(v);
-    }).join('\t')
+    }), row.symbol].join('\t')
   );
   return [header, ...body].join('\n');
 }
