@@ -11,7 +11,8 @@ import { buildAnalystInput } from '../services/scanner/run-scan.js';
 import { logger } from '../utils/logger.js';
 
 const AnalystResponseSchema = z.object({
-  briefId: z.string().min(1),
+  /** Optional: when absent (e.g. after a page reload) the reply's own briefId is used. */
+  briefId: z.string().min(1).optional(),
   /** The analyst's reply. JSON object, or text with a JSON object inside it. */
   response: z.string().min(2),
 });
@@ -92,7 +93,17 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
 
   /** Accept the analyst's reply and turn it into a validated plan. */
   fastify.post('/api/v1/analyst/response', { preHandler: requireSession }, async (request, reply) => {
-    const { briefId, response } = AnalystResponseSchema.parse(request.body);
+    const { briefId: requested, response } = AnalystResponseSchema.parse(request.body);
+
+    const out = extractJson(response);
+    if (!out || typeof out !== 'object' || Array.isArray(out)) {
+      throw new AppError(400, 'INVALID_JSON', 'The reply is not a JSON object.');
+    }
+
+    const briefId = requested ?? (typeof out.briefId === 'string' ? out.briefId : '');
+    if (!briefId) {
+      throw new AppError(400, 'NO_BRIEF_ID', 'The reply has no briefId, and no brief is open. Generate a brief first.');
+    }
 
     const brief = BriefStore.get(briefId);
     if (!brief) {
@@ -101,11 +112,6 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
         'BRIEF_NOT_FOUND',
         'That brief is unknown or older than 18 hours. Generate a new one — a plan must be checked against the facts the analyst actually read.'
       );
-    }
-
-    const out = extractJson(response);
-    if (!out || typeof out !== 'object' || Array.isArray(out)) {
-      throw new AppError(400, 'INVALID_JSON', 'The reply is not a JSON object.');
     }
 
     // Identity only: is this the reply to this brief? Nothing here judges

@@ -1031,12 +1031,11 @@ async function generateBrief(){
 }
 
 async function submitAnalystResponse(text){
-  if (!state.brief.data) return;
   state.brief.submitting = true; state.brief.error = null; render();
   try {
     const plan = await api("/api/v1/analyst/response", {
       method:"POST",
-      body:{ briefId: state.brief.data.briefId, response: text }
+      body:{ briefId: state.brief.data ? state.brief.data.briefId : undefined, response: text }
     });
     state.api.rows = (plan.setups || []).map(rowFromApi);
     state.api.plan = plan;
@@ -2115,12 +2114,12 @@ function viewAnalyst(){
           <div class="toolbar" style="margin:12px 0 10px">
             <label class="btn" for="brief-file" style="cursor:pointer">
               <span class="glyph">↑</span> Upload a file
-              <input type="file" id="brief-file" accept=".json,.txt,.md,application/json,text/plain" style="display:none" ${d?"":"disabled"}>
+              <input type="file" id="brief-file" accept=".json,.txt,.md,application/json,text/plain" style="display:none">
             </label>
             <span class="dim" id="brief-file-msg" style="font-size:12px"></span>
           </div>
-          <textarea class="input" id="brief-reply" placeholder='…or paste the reply here' spellcheck="false" ${d?"":"disabled"}></textarea>
-          <button class="btn primary" id="brief-submit" style="margin-top:10px" ${d && !b.submitting ? "" : "disabled"}>
+          <textarea class="input" id="brief-reply" placeholder='…or paste the reply here' spellcheck="false"></textarea>
+          <button class="btn primary" id="brief-submit" style="margin-top:10px" ${!b.submitting ? "" : "disabled"}>
             ${b.submitting ? `<span class="spin"></span> Validating…` : `<span class="glyph">→</span> Process reply`}
           </button>
         </div>
@@ -2315,6 +2314,7 @@ document.addEventListener("change", e => {
 
   if (e.target.id === "brief-file"){
     const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // so choosing the same file again still fires
     if (!file) return;
     const msg = document.getElementById("brief-file-msg");
     log("info", "reading analyst file", { name: file.name, bytes: file.size });
