@@ -65,7 +65,9 @@ NIFTY 50    close ${f(ctx.nifty.lastPrice)} (${sign(ctx.nifty.changePercent)})  
 BANK NIFTY  close ${f(ctx.bankNifty.lastPrice)} (${sign(ctx.bankNifty.changePercent)})  open ${f(ctx.bankNifty.open)}  high ${f(ctx.bankNifty.high)}  low ${f(ctx.bankNifty.low)}
 Sectors (average of constituents): ${sectors}
 
-F&O universe — ${ctx.universe.length} stocks, sorted by today's move. closePos is where the close sat in the day's range (0 = at the low, 1 = at the high). rvol is today's volume over the 20-day average. atr14 is the 14-day average true range in rupees. run4d% is the return over the last four sessions. vsNifty% is the stock's move minus NIFTY's.
+${ctx.universe.some((u) => !u.fno)
+  ? `Stock universe — ${ctx.universe.length} stocks: the F&O list plus the ${ctx.universe.filter((u) => !u.fno).length} most liquid non-F&O NSE stocks by today's turnover, included at my request. The fno column marks which is which (Y = F&O, N = non-F&O); treat non-F&O names as eligible, and mention it where liquidity or shorting constraints matter.`
+  : `F&O universe — ${ctx.universe.length} stocks.`} Sorted by today's move. closePos is where the close sat in the day's range (0 = at the low, 1 = at the high). rvol is today's volume over the 20-day average. atr14 is the 14-day average true range in rupees. run4d% is the return over the last four sessions. vsNifty% is the stock's move minus NIFTY's.
 
 ${universeTable(ctx.universe)}`;
 }

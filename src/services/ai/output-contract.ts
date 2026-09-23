@@ -71,16 +71,14 @@ export const CONTRACT_EXAMPLE = {
 
 export function outputContract(briefId: string, mode: 'file' | 'json-only'): string {
   const delivery = mode === 'file'
-    ? `First, write your full analysis in this chat exactly as the prompt above asks — every part, in plain language. That is the analysis I read.
-
-Then, at the very end, save a summary of it as a downloadable file named \`nightwatch-reply-${briefId}.json\`, containing only the JSON below — no commentary inside the file. If you cannot produce a file, print the JSON as the last thing in your reply, using straight double quotes (") only.`
+    ? `Do all of the analysis the prompt asks for, but do not write it out in the chat. Reply with ONLY a downloadable file named \`nightwatch-reply-${briefId}.json\` containing the JSON below — no text before or after it, no summary, no commentary. Put your reasoning inside the JSON's own fields (why, catalyst, invalidation, scenarios, notes, selfCritique). If you cannot produce a file, reply with the raw JSON and nothing else, using straight double quotes (") only.`
     : 'Return only the JSON object below — no other text.';
 
   return `## SUMMARY FILE FOR THE APP
 
 ${delivery}
 
-The file is a machine-readable copy of your Part 12 watchlist, Part 13 trade plans and Part 19 final output. It does not change how you analyse anything.
+The file carries your Part 12 watchlist, Part 13 trade plans and Part 19 final output. It does not change how you analyse anything.
 
 - briefId: "${briefId}"
 - watchlist: your Part 12 list (approximately 5-10), each with rank, symbol, bias ("LONG" or "SHORT"), setup, score, keyLevel, note

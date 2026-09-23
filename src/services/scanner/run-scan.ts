@@ -16,7 +16,7 @@ import { universeRow } from '../ai/universe.js';
  */
 export async function buildAnalystInput(
   request: FastifyRequest,
-  opts: { capital: number; riskPercent: number; maxTrades: number }
+  opts: { capital: number; riskPercent: number; maxTrades: number; universe?: 'fno' | 'all' }
 ): Promise<AnalystInput> {
   const auth = DhanAuthService.getInstance();
   const sessionId = request.sessionId as string;
@@ -25,7 +25,8 @@ export async function buildAnalystInput(
   if (!accessToken || !clientId) throw new NotAuthenticatedError();
 
   const market = new DhanMarketDataService(accessToken, clientId);
-  const scan = await new CandidateScannerService(market).scanUniverse();
+  const scanner = new CandidateScannerService(market);
+  const scan = await scanner.scanUniverse({ includeNonFno: opts.universe === 'all' });
 
   const avg = (scan.niftyQuote.changePercent + scan.bankNiftyQuote.changePercent) / 2;
   const marketBias = avg >= 0.5 ? 'BULLISH' : avg <= -0.5 ? 'BEARISH' : 'NEUTRAL';
@@ -55,7 +56,7 @@ export async function buildAnalystInput(
     previousCloses: scan.previousCloses,
     universe: [...scan.candidates, ...scan.rejected].map((c) => {
       const sector = scan.sectorPerformances.find((s) => s.sector === c.sectorName);
-      return universeRow(c, sector ? sector.changePercent : null);
+      return universeRow(c, sector ? sector.changePercent : null, !scanner.nonFno.has(c.quote.symbol));
     }),
     capital: opts.capital,
     riskPercent: opts.riskPercent,

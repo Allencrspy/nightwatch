@@ -4,6 +4,7 @@ import {
   type MarketQuote, type QuoteWithChange, type Candle,
 } from '../dhan/dhan-market-data.service.js';
 import { DhanRateLimiter } from '../dhan/rate-limiter.js';
+import { InstrumentMaster } from '../dhan/instrument-master.js';
 import { TechnicalIndicatorService, type TechnicalMetrics } from '../technical/indicators.js';
 import { RelativeStrengthService, type RelativeStrengthMetrics } from '../technical/relative-strength.js';
 import { FnoAnalysisService, type FnoAnalysisResult } from '../fno/fno-analysis.service.js';
@@ -72,12 +73,46 @@ export function withTodaysBar(history: Candle[], quote: MarketQuote): Candle[] {
 const SECTOR_BY_SYMBOL = new Map<string, string>();
 for (const s of SECTOR_MAPPINGS) for (const sym of s.symbols) SECTOR_BY_SYMBOL.set(sym, s.sector);
 
+/** How many non-F&O names to add when asked. Bounds the scan and the brief. */
+const NON_FNO_LIMIT = 100;
+
 export class CandidateScannerService {
+  /** Symbols in this scan that are not on the F&O list. */
+  public nonFno = new Set<string>();
+
   /** Takes the session-scoped Dhan client; there is no ambient singleton now. */
   constructor(private market: DhanMarketDataService) {}
 
-  public async scanUniverse(): Promise<ScanResult> {
-    logger.info({ universe: FNO_STOCK_UNIVERSE.length }, 'Starting NSE F&O universe scan');
+  /**
+   * The most liquid NSE equities outside the F&O list, by today's turnover.
+   *
+   * Every NSE equity is quoted in batches of 1,000 (about ten calls), then
+   * ranked by turnover. Only turnover is used to choose: the prompt prefers
+   * F&O stocks for their liquidity (rule 8, Part 10), so liquidity is the
+   * honest way to bound the extra names. It does not pre-judge setups —
+   * which names are worth trading stays the analyst's call.
+   */
+  private async liquidNonFno(limit: number): Promise<string[]> {
+    const fno = new Set(FNO_STOCK_UNIVERSE);
+    const all = [...(await InstrumentMaster.load()).keys()]
+      .filter((s) => !fno.has(s) && !/BEES|ETF|GOLD|SILVER|LIQUID|NIFTY|SENSEX/.test(s));
+    const turnover: Array<[string, number]> = [];
+    for (let i = 0; i < all.length; i += 1000) {
+      try {
+        const quotes = await this.market.getMarketQuotes(all.slice(i, i + 1000));
+        for (const q of quotes.values()) turnover.push([q.symbol, q.lastPrice * q.volume]);
+      } catch (err: any) {
+        logger.warn({ from: i, error: err?.message }, 'Non-F&O quote batch failed');
+      }
+    }
+    return turnover.sort((a, b) => b[1] - a[1]).slice(0, limit).map(([sym]) => sym);
+  }
+
+  public async scanUniverse(opts: { includeNonFno?: boolean } = {}): Promise<ScanResult> {
+    const extra = opts.includeNonFno ? await this.liquidNonFno(NON_FNO_LIMIT) : [];
+    const SYMBOLS = [...FNO_STOCK_UNIVERSE, ...extra];
+    this.nonFno = new Set(extra);
+    logger.info({ fno: FNO_STOCK_UNIVERSE.length, nonFno: extra.length }, 'Starting universe scan');
 
     // Index moves drive relative strength and the market bias, and Dhan's
     // quote carries no previous close, so each index needs its own history.
@@ -88,8 +123,11 @@ export class CandidateScannerService {
     // symbol. Dhan allows a single quote request per second, so ~90 separate
     // calls did not merely run slowly — they earned a 429 and a warning that
     // further requests could get the account blocked.
-    const rawQuotes = await this.market.getMarketQuotes(FNO_STOCK_UNIVERSE);
-    logger.info({ requested: FNO_STOCK_UNIVERSE.length, returned: rawQuotes.size }, 'Universe quotes fetched');
+    const rawQuotes = new Map<string, MarketQuote>();
+    for (let i = 0; i < SYMBOLS.length; i += 1000) {
+      for (const [k, v] of await this.market.getMarketQuotes(SYMBOLS.slice(i, i + 1000))) rawQuotes.set(k, v);
+    }
+    logger.info({ requested: SYMBOLS.length, returned: rawQuotes.size }, 'Universe quotes fetched');
 
     const skipped: Array<{ symbol: string; reason: string }> = [];
 
@@ -99,7 +137,7 @@ export class CandidateScannerService {
     interface Prepared { quote: QuoteWithChange; candles: Candle[] }
     const prepared = new Map<string, Prepared>();
 
-    for (const symbol of FNO_STOCK_UNIVERSE) {
+    for (const symbol of SYMBOLS) {
       try {
         const rawQuote = rawQuotes.get(symbol);
         if (!rawQuote) {
@@ -181,9 +219,9 @@ export class CandidateScannerService {
       }
     }
 
-    if (skipped.length > FNO_STOCK_UNIVERSE.length / 2) {
+    if (skipped.length > SYMBOLS.length / 2) {
       throw new DataUnavailableError(
-        `Scan aborted: ${skipped.length} of ${FNO_STOCK_UNIVERSE.length} symbols could not be evaluated.`,
+        `Scan aborted: ${skipped.length} of ${SYMBOLS.length} symbols could not be evaluated.`,
         skipped.slice(0, 10)
       );
     }

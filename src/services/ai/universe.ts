@@ -11,6 +11,8 @@ import type { StockCandidateData } from '../scanner/candidate-scanner.js';
  */
 export interface UniverseRow {
   symbol: string;
+  /** On the F&O list. Non-F&O names appear only when the user asks for them. */
+  fno: boolean;
   sector: string;
   prevClose: number;
   open: number;
@@ -40,11 +42,12 @@ export interface UniverseRow {
 
 const r = (v: number, dp = 2) => Number(v.toFixed(dp));
 
-export function universeRow(c: StockCandidateData, sectorPct: number | null): UniverseRow {
+export function universeRow(c: StockCandidateData, sectorPct: number | null, fno = true): UniverseRow {
   const q = c.quote as any;
   const t = c.technical;
   return {
     symbol: q.symbol,
+    fno,
     sector: c.sectorName === 'NIFTY 50' ? 'Other' : c.sectorName.replace(/^NIFTY /, ''),
     prevClose: r(q.previousClose),
     open: r(q.open),
@@ -74,7 +77,7 @@ export function universeRow(c: StockCandidateData, sectorPct: number | null): Un
 }
 
 const COLUMNS: Array<[keyof UniverseRow, string]> = [
-  ['symbol', 'symbol'], ['sector', 'sector'],
+  ['symbol', 'symbol'], ['fno', 'fno'], ['sector', 'sector'],
   ['changePct', 'chg%'], ['close', 'close'], ['prevClose', 'prev'],
   ['open', 'open'], ['high', 'high'], ['low', 'low'], ['closePos', 'closePos'],
   ['volume', 'volume'], ['avgVol20', 'avgVol20'], ['rvol', 'rvol'], ['turnoverCr', 'turnoverCr'],
@@ -99,7 +102,7 @@ export function universeTable(rows: UniverseRow[]): string {
   const body = sorted.map((row) =>
     [...COLUMNS.map(([k]) => {
       const v = row[k];
-      return v === null || v === undefined ? '—' : String(v);
+      return v === null || v === undefined ? '—' : typeof v === 'boolean' ? (v ? 'Y' : 'N') : String(v);
     }), row.symbol].join('\t')
   );
   return [header, ...body].join('\n');

@@ -4,7 +4,7 @@ import { readPlan } from '../src/services/ai/plan-reader.js';
 import type { UniverseRow } from '../src/services/ai/universe.js';
 
 const row = (symbol: string, close: number): UniverseRow => ({
-  symbol, sector: 'X', prevClose: close, open: close, high: close, low: close, close,
+  symbol, fno: true, sector: 'X', prevClose: close, open: close, high: close, low: close, close,
   changePct: 2, volume: 1, avgVol20: 1, rvol: 1, closePos: 0.8,
   swingHigh20: close, swingLow20: close, swingHigh50: close, swingLow50: close,
   ema20: close, ema50: close, ema200: close, atr14: 10, high52w: close, low52w: close,

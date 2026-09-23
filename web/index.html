@@ -1008,14 +1008,15 @@ function rowFromApi(s, i){
    whichever assistant the user already pays for; the reply comes back here.
    The server merges and validates it exactly as it would an API response.
    ========================================================================= */
-state.brief = { status:"idle", data:null, error:null, copied:false, submitting:false };
+state.brief = { status:"idle", data:null, error:null, copied:false, submitting:false, universe:"fno" };
 
 async function generateBrief(){
   state.brief.status = "loading"; state.brief.error = null; render();
   try {
     const data = await api("/api/v1/analyst/brief", {
       method:"POST",
-      body:{ capital:state.capital, riskPercent:SCAN.risk.perTradePct, maxTrades:SCAN.risk.maxTrades }
+      body:{ capital:state.capital, riskPercent:SCAN.risk.perTradePct, maxTrades:SCAN.risk.maxTrades,
+             universe: state.brief.universe }
     });
     state.brief.data = data;
     state.brief.status = "ready";
@@ -2069,11 +2070,20 @@ function viewAnalyst(){
         <div class="step-body">
           <h3>Generate tonight's brief</h3>
           <p class="muted">Scans the F&amp;O universe, computes every indicator from Dhan data, and assembles the framework prompt with the facts. Takes about 20 seconds.</p>
+          <div class="toolbar" style="margin-top:12px;margin-bottom:0">
+            <div class="src-toggle" role="group" aria-label="Stock universe">
+              <button data-univ="fno" aria-pressed="${b.universe==="fno"}">F&amp;O</button>
+              <button data-univ="all" aria-pressed="${b.universe==="all"}">F&amp;O + non-F&amp;O</button>
+            </div>
+            <span class="dim" style="font-size:12px">${b.universe==="all"
+              ? "81 F&amp;O stocks plus the 100 most liquid non-F&amp;O by turnover · scan takes ~1 min"
+              : "81 F&amp;O stocks · scan takes ~20s"}</span>
+          </div>
           <button class="btn primary" id="brief-gen" style="margin-top:12px" ${b.status==="loading"?"disabled":""}>
             ${b.status==="loading" ? `<span class="spin"></span> Scanning…` : `<span class="glyph">↻</span> ${d ? "Regenerate" : "Generate brief"}`}
           </button>
           ${d ? `<p class="dim" style="margin-top:10px;font-size:12px">
-            Brief <span class="num">${esc(d.briefId)}</span> · your prompt plus exchange data for ${d.universeCount} F&amp;O stocks ·
+            Brief <span class="num">${esc(d.briefId)}</span> · your prompt plus exchange data for ${d.universeCount} stocks${d.nonFnoCount ? ` (${d.nonFnoCount} non-F&amp;O)` : ""} ·
             ${(d.pasteText.length/1000).toFixed(1)}k characters ·
             valid 18 hours</p>` : ""}
         </div>
@@ -2083,7 +2093,7 @@ function viewAnalyst(){
         <div class="step-n">2</div>
         <div class="step-body">
           <h3>Copy it into your assistant</h3>
-          <p class="muted">Paste into <strong>a new</strong> ChatGPT or Claude conversation each night — an old one can hand back yesterday's reply. The brief asks for a file named with tonight's brief id, so replies can't be mixed up.</p>
+          <p class="muted">Paste into <strong>a new</strong> ChatGPT conversation each night. It replies with only the file <span class="num">nightwatch-reply-&lt;id&gt;.json</span> — no chat text — so download it and upload it below.</p>
           ${d ? `
             <div class="toolbar" style="margin-top:12px;margin-bottom:10px">
               <button class="btn" id="brief-copy"><span class="glyph">⧉</span> ${b.copied ? "Copied" : "Copy brief"}</button>
@@ -2208,6 +2218,8 @@ document.addEventListener("click", e => {
 
   if (e.target.closest("#refresh")){ refreshFromApi(); return; }
   if (e.target.closest("#brief-gen")){ generateBrief(); return; }
+  const un = e.target.closest("[data-univ]");
+  if (un){ state.brief.universe = un.dataset.univ; render(); return; }
   if (e.target.closest("#brief-copy")){
     const msg = document.getElementById("brief-msg");
     navigator.clipboard.writeText(state.brief.data.pasteText)

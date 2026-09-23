@@ -69,9 +69,9 @@ function extractJson(raw: string): any {
 export const analystRoutes: FastifyPluginAsync = async (fastify) => {
   /** Run the scan and produce a brief to paste. */
   fastify.post('/api/v1/analyst/brief', { preHandler: requireSession }, async (request, reply) => {
-    const { capital, riskPercent, maxTrades } = IntradayAnalysisRequestSchema.parse(request.body || {});
+    const { capital, riskPercent, maxTrades, universe } = IntradayAnalysisRequestSchema.parse(request.body || {});
 
-    const input = await buildAnalystInput(request, { capital, riskPercent, maxTrades });
+    const input = await buildAnalystInput(request, { capital, riskPercent, maxTrades, universe });
     const brief = BriefStore.save(input);
     const text = pasteBrief({ briefId: brief.id, capital, riskPercent, context: marketContext(input) });
 
@@ -83,6 +83,7 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
         briefId: brief.id,
         createdAt: brief.createdAt,
         universeCount: input.universe.length,
+        nonFnoCount: input.universe.filter((u) => !u.fno).length,
         promptVersion: PROMPT_VERSION,
         pasteText: text,
       },
