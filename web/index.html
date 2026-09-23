@@ -1905,8 +1905,8 @@ function viewAll(){
       </div>
       <div class="head-right">
         ${flagged
-          ? `<span class="chip bad"><span class="glyph">✗</span> ${flagged} of ${rows.length} failed a check</span>`
-          : rows.length ? `<span class="chip good"><span class="glyph">✓</span> all rows pass</span>` : ""}
+          ? `<span class="chip warn" title="Nothing was removed — these setups carry a note worth reading before you trade them. Open a row to see it."><span class="glyph">⚠</span> ${flagged} of ${rows.length} have warnings to review</span>`
+          : rows.length ? `<span class="chip good"><span class="glyph">✓</span> no warnings</span>` : ""}
       </div>
     </div>
 
