@@ -147,4 +147,10 @@ export const analystRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/api/v1/analyst/briefs', { preHandler: requireSession }, async (_request, reply) => {
     return reply.send({ success: true, data: BriefStore.list() });
   });
+
+  /** The most recent accepted plan, so a page reload does not lose it. */
+  fastify.get('/api/v1/analyst/latest', { preHandler: requireSession }, async (_request, reply) => {
+    const brief = BriefStore.latestWithPlan();
+    return reply.send({ success: true, data: brief?.plan ?? null });
+  });
 };

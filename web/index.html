@@ -337,6 +337,47 @@ textarea.input{
   .bar-row{grid-template-columns:minmax(96px,1fr) minmax(0,1.6fr) 54px;gap:8px}
   .big{font-size:32px}
 }
+
+/* ---- Plan view (live ChatGPT plan) ---- */
+.pv-strip{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.2fr;gap:12px;margin-bottom:18px}
+.pv-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;min-width:0}
+.pv-label{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.pv-card p{margin:0;color:var(--ink-2);font-size:13px;line-height:1.5}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.clamp1{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.top3{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.top3 span{display:flex;gap:8px;align-items:baseline}
+.top3 b{font-family:var(--mono);font-size:11px;color:var(--ink-3);font-weight:500;width:18px}
+table.dense th,table.dense td{padding:9px 12px}
+table.dense td.n,table.dense th.n{text-align:right}
+.sub-n{display:block;font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+tr.pv-row{cursor:pointer}
+tr.pv-row:hover td{background:var(--card-2)}
+tr.pv-row.open td{background:var(--card-2);border-bottom-color:transparent}
+tr.pv-row .caret{color:var(--ink-3);transition:transform .15s;display:inline-block}
+tr.pv-row.open .caret{transform:rotate(90deg)}
+tr.pv-detail>td{background:var(--card-2);padding:2px 18px 20px;white-space:normal}
+.pv-grid{display:grid;grid-template-columns:1.25fr 1.2fr .9fr;gap:22px}
+.pv-sec h4{margin:14px 0 6px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.pv-sec p{margin:0;color:var(--ink-2);font-size:13px;line-height:1.55}
+.pv-warn{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.pv-warn div{background:var(--warn-wash);color:var(--warn);border-radius:8px;padding:7px 10px;font-size:12.5px;line-height:1.45}
+.cl{display:grid;grid-template-columns:44px 1fr;gap:5px 8px;font-size:13px}
+.cl .rq{font-family:var(--mono);font-size:10px;padding-top:2px;color:var(--ink-3)}
+.cl .rq.req{color:var(--accent)}
+.gp{display:grid;grid-template-columns:minmax(110px,.8fr) 1.2fr;gap:5px 12px;font-size:12.5px}
+.gp dt{color:var(--ink-3)} .gp dd{margin:0;color:var(--ink-2)}
+.lv{display:grid;grid-template-columns:auto 1fr auto;gap:5px 12px;font-family:var(--mono);font-size:13px;align-items:baseline}
+.lv .k{font-family:var(--ui);font-size:12px;color:var(--ink-3)}
+.lv .v{text-align:right}
+.lv .d{font-size:11px;color:var(--ink-3);text-align:right}
+.pv-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.pv-cols ul{margin:0;padding-left:16px;color:var(--ink-2);font-size:13px;line-height:1.5}
+.pv-cols li+li{margin-top:5px}
+tr.wl-row{cursor:pointer}
+tr.wl-row.open .clamp1{-webkit-line-clamp:unset}
+@media (max-width:1000px){.pv-strip{grid-template-columns:1fr 1fr}.pv-grid,.pv-cols{grid-template-columns:1fr}}
+@media (max-width:560px){.pv-strip{grid-template-columns:1fr}}
 </style>
 <style>
   html,body{height:100%}
@@ -999,7 +1040,8 @@ function rowFromApi(s, i){
     posValue:s.positionSizing ? s.positionSizing.positionValue : null,
     shares:s.positionSizing ? s.positionSizing.shares : null,
     tier:s.top3Rank ? `Top 3 · #${s.top3Rank}` : (s.inTop3 ? "Top 3" : null),
-    serverWarnings:s.warnings || []
+    serverWarnings:s.warnings || [],
+    raw:s
   });
 }
 
@@ -1847,6 +1889,141 @@ function planSummary(p){
     ${avoid.length ? `` : ""}`;
 }
 
+function movePct(from, to){ return from ? ((to - from) / from) * 100 : null; }
+const signPct = v => v == null ? "" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
+
+function planDetail(r){
+  const s = r.raw || {};
+  const ps = s.positionSizing || {};
+  const long = r.bias === "LONG";
+  const sec = (title, body) => body ? `<div class="pv-sec"><h4>${title}</h4><p>${esc(body)}</p></div>` : "";
+  return `
+    ${r.flags.length ? `<div class="pv-warn">${r.flags.map(f => `<div>⚠ ${esc(f)}</div>`).join("")}</div>` : ""}
+    <div class="pv-grid">
+      <div>
+        ${sec("Why", s.why)}
+        ${sec("Catalyst", s.catalyst)}
+        ${sec("Invalidation", s.invalidation)}
+        ${sec("Bullish scenario", s.bullishScenario)}
+        ${sec("Bearish scenario", s.bearishScenario)}
+      </div>
+      <div>
+        <div class="pv-sec"><h4>Conditions to wait for</h4>
+          ${r.conditions.length ? `<div class="cl">${r.conditions.map(c => `
+            <span class="rq ${c.req?"req":""}">${c.req?"REQ":"PREF"}</span><span>${esc(c.text)}</span>`).join("")}</div>`
+            : `<p>None listed.</p>`}</div>
+        ${(s.gapPlan||[]).length ? `<div class="pv-sec"><h4>Gap plan</h4><dl class="gp">${s.gapPlan.map(g =>
+          `<dt>${esc(g.condition)}</dt><dd>${esc(g.action)}</dd>`).join("")}</dl></div>` : ""}
+      </div>
+      <div>
+        <div class="pv-sec"><h4>Levels</h4>
+          <div class="lv">
+            <span class="k">Entry</span><span class="v">${rupee(r.entryVal)}</span><span class="d"></span>
+            <span class="k">Stop</span><span class="v" style="color:var(--bad)">${rupee(r.stop)}</span><span class="d">${signPct(movePct(r.entryVal, r.stop))}</span>
+            ${r.targets.map(t => `<span class="k">${esc(t.label)}</span><span class="v" style="color:var(--accent)">${rupee(t.val)}</span><span class="d">${signPct(movePct(r.entryVal, t.val))}${t.rr!=null?` · ${t.rr.toFixed(2)}R`:""}</span>`).join("")}
+            <span class="k">Risk / share</span><span class="v">${r.risk!=null?rupee(r.risk):"—"}</span><span class="d"></span>
+          </div>
+          ${s.riskRewardStated ? `<p style="margin-top:8px;font-size:12px" class="dim">Analyst's R:R: ${esc(s.riskRewardStated)}</p>` : ""}
+        </div>
+        <div class="pv-sec"><h4>Position size · Part 18</h4>
+          <div class="lv">
+            <span class="k">Max risk</span><span class="v">${rupee(ps.maxRiskRupees,0)}</span><span class="d"></span>
+            <span class="k">Shares</span><span class="v">${ps.shares ?? "—"}</span><span class="d"></span>
+            <span class="k">Value</span><span class="v">${ps.positionValue!=null?rupee(ps.positionValue,0):"—"}</span><span class="d"></span>
+          </div>
+        </div>
+        <div class="pv-sec"><h4>Score</h4><p>${r.score ?? "—"}<span class="dim">/100</span>${s.setup ? ` · ${esc(s.setup)}` : ""}</p></div>
+      </div>
+    </div>`;
+}
+
+function planView(p, rows){
+  const m = p.market || {};
+  const wl = p.watchlist || [];
+  const top3 = p.top3 || [];
+  const open = state.openSetup;
+  const biasChip = b => `<span class="chip ${b==="LONG"?"good":b==="SHORT"?"bad":""}">${esc(b)}</span>`;
+
+  const trades = rows.map(r => {
+    const t1 = r.targets[0], t2 = r.targets[1];
+    const isOpen = open === r.sym;
+    return `
+    <tr class="pv-row ${isOpen?"open":""}" data-setup="${esc(r.sym)}" aria-expanded="${isOpen}">
+      <td class="rank">${r.rank}</td>
+      <td><strong>${esc(r.sym)}</strong>${r.raw && r.raw.top3Rank ? ` <span class="chip warn" style="margin-left:6px">#${r.raw.top3Rank}</span>` : ""}
+        <span class="sub-n" style="font-family:var(--ui)">${esc(r.setupType)}</span></td>
+      <td>${biasChip(r.bias)}</td>
+      <td class="n">${rupee(r.entryVal)}</td>
+      <td class="n" style="color:var(--bad)">${rupee(r.stop)}<span class="sub-n">${signPct(movePct(r.entryVal, r.stop))}</span></td>
+      <td class="n">${t1?rupee(t1.val):"—"}<span class="sub-n">${t1?signPct(movePct(r.entryVal,t1.val)):""}</span></td>
+      <td class="n">${t2?rupee(t2.val):"—"}<span class="sub-n">${t2?signPct(movePct(r.entryVal,t2.val)):""}</span></td>
+      <td class="n">${r.rrComputed!=null?r.rrComputed.toFixed(2)+":1":"—"}</td>
+      <td class="n">${r.shares ?? "—"}<span class="sub-n">${r.posValue!=null?rupee(r.posValue,0):""}</span></td>
+      <td class="n">${r.score ?? "—"}</td>
+      <td>${r.flags.length ? `<span class="chip warn" title="${esc(r.flags.join("\n"))}">⚠ ${r.flags.length}</span>` : `<span class="dim">✓</span>`}</td>
+      <td><span class="caret">›</span></td>
+    </tr>
+    ${isOpen ? `<tr class="pv-detail"><td colspan="12">${planDetail(r)}</td></tr>` : ""}`;
+  }).join("");
+
+  return `
+    ${p.noHighQualitySetup ? `<div class="banner warn" style="margin-bottom:14px"><span class="glyph">!</span>
+      <div><strong>No high-quality setup today.</strong> The analyst says to stay out rather than force a trade.</div></div>` : ""}
+    ${(p.warnings || []).map(w => `<div class="banner warn" style="margin-bottom:14px"><span class="glyph">!</span><div>${esc(w)}</div></div>`).join("")}
+
+    <div class="pv-strip">
+      <div class="pv-card">
+        <div class="pv-label">Market ${m.bias ? `<span class="chip ${m.bias==="BULLISH"?"good":m.bias==="BEARISH"?"bad":"warn"}">${esc(m.strength || m.bias)}</span>` : ""}</div>
+        <p class="clamp2" title="${esc(m.read || "")}">${esc(m.read || "—")}</p>
+      </div>
+      <div class="pv-card">
+        <div class="pv-label">Sectors</div>
+        <p><span style="color:var(--accent)">▲</span> ${esc((m.strongestSectors||[]).join(", ") || "—")}</p>
+        <p style="margin-top:4px"><span style="color:var(--bad)">▼</span> ${esc((m.weakestSectors||[]).join(", ") || "—")}</p>
+      </div>
+      <div class="pv-card">
+        <div class="pv-label">Top 3</div>
+        <div class="top3">${[0,1,2].map(i => `<span><b>#${i+1}</b>${top3[i] ? `<strong>${esc(top3[i])}</strong>` : `<span class="dim">—</span>`}</span>`).join("")}</div>
+      </div>
+      <div class="pv-card">
+        <div class="pv-label">Best long / short</div>
+        <p class="clamp2" title="${esc(p.bestLong || "")}"><span style="color:var(--accent)">L</span> ${esc(p.bestLong || "none")}</p>
+        <p class="clamp1" style="margin-top:4px" title="${esc(p.bestShort || "")}"><span style="color:var(--bad)">S</span> ${esc(p.bestShort || "none")}</p>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Trade plans</h2><span class="eyebrow">Part 13 · ${rows.length} · click a row for full details</span></div>
+    <div class="table-wrap" style="margin-bottom:22px"><table class="dense" style="min-width:820px">
+      <thead><tr><th>#</th><th>Stock</th><th>Bias</th><th class="n">Entry</th><th class="n">Stop</th><th class="n">T1</th><th class="n">T2</th>
+        <th class="n">R:R</th><th class="n">Qty</th><th class="n">Score</th><th>Flags</th><th></th></tr></thead>
+      <tbody>${trades || `<tr><td colspan="12" class="dim" style="padding:22px 14px">No trade plans in this reply.</td></tr>`}</tbody>
+    </table></div>
+
+    ${wl.length ? `<div class="section-head"><h2>Watchlist</h2><span class="eyebrow">Part 12 · ${wl.length}</span></div>
+      <div class="table-wrap" style="margin-bottom:22px"><table class="dense" style="min-width:820px">
+        <thead><tr><th>#</th><th>Stock</th><th>Bias</th><th>Setup</th><th class="n">Score</th><th class="n">Key level</th><th style="width:48%">Note</th></tr></thead>
+        <tbody>${wl.map(w => `<tr class="wl-row ${state.openWatch===w.symbol?"open":""}" data-watch="${esc(w.symbol)}">
+          <td class="rank">${w.rank ?? "—"}</td>
+          <td><strong>${esc(w.symbol)}</strong>${(w.warnings||[]).length ? ` <span class="chip warn" title="${esc(w.warnings.join("\n"))}">⚠</span>` : ""}</td>
+          <td>${biasChip(w.bias)}</td>
+          <td class="muted">${esc(w.setup)}</td>
+          <td class="n">${w.score ?? "—"}</td>
+          <td class="n">${w.keyLevel != null ? rupee(w.keyLevel) : "—"}</td>
+          <td class="muted" style="white-space:normal"><span class="clamp1" title="${esc(w.note)}">${esc(w.note)}</span></td></tr>`).join("")}</tbody>
+      </table></div>` : ""}
+
+    <div class="pv-cols" style="margin-bottom:22px">
+      <div class="pv-card"><div class="pv-label">Stocks to avoid</div>
+        ${(p.stocksToAvoid||[]).length ? `<ul>${p.stocksToAvoid.map(a => `<li><strong>${esc(a.symbol)}</strong> — ${esc(a.reason)}</li>`).join("")}</ul>` : `<p class="dim">None.</p>`}</div>
+      <div class="pv-card"><div class="pv-label">No-trade conditions</div>
+        ${(p.noTradeConditions||[]).length ? `<ul>${p.noTradeConditions.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="dim">None.</p>`}</div>
+      <div class="pv-card"><div class="pv-label">9:00–9:15 checklist</div>
+        ${(p.checklist900to915||[]).length ? `<ul>${p.checklist900to915.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="dim">None.</p>`}</div>
+    </div>
+
+    ${p.selfCritique ? `<div class="pv-card"><div class="pv-label">Analyst's self-critique</div><p>${esc(p.selfCritique)}</p></div>` : ""}`;
+}
+
 function viewAll(){
   const api = state.api;
   const rows = state.source === "api" ? api.rows : SCAN.setups.map(rowFromScan);
@@ -1899,7 +2076,9 @@ function viewAll(){
       <div>
         <h1>All setups</h1>
         <p class="sub">${state.source === "api"
-          ? `Live from <span class="num">${esc(state.apiBase)}</span>${api.at ? " · fetched " + api.at.toLocaleTimeString("en-IN") : ""}`
+          ? (api.plan && api.plan.source === "pasted"
+              ? `ChatGPT plan · brief <span class="num">${esc(api.plan.briefId)}</span>${api.at ? " · accepted " + api.at.toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}) : ""}`
+              : `Live from <span class="num">${esc(state.apiBase)}</span>${api.at ? " · fetched " + api.at.toLocaleTimeString("en-IN") : ""}`)
           : `Nightly scan for the ${esc(SCAN.meta.forSession)} session`}</p>
       </div>
       <div class="head-right">
@@ -1909,7 +2088,7 @@ function viewAll(){
       </div>
     </div>
 
-    <div class="toolbar">
+    ${state.source === "api" && api.plan && api.plan.source === "pasted" ? "" : `<div class="toolbar">
       <div class="src-toggle" role="group" aria-label="Data source">
         <button data-src="scan" aria-pressed="${state.source==="scan"}">Nightly scan</button>
         <button data-src="api" aria-pressed="${state.source==="api"}">Live API</button>
@@ -1922,15 +2101,14 @@ function viewAll(){
       <span class="dim" style="font-size:12px">
         POST /api/v1/intraday-analysis · capital ${rupee(state.capital,0)} · risk ${SCAN.risk.perTradePct}% · max ${SCAN.risk.maxTrades}
       </span>
-    </div>
+    </div>`}
 
     ${api.status === "error" ? `<div class="banner bad" style="margin-bottom:16px">
       <span class="glyph">✗</span>
       <div><strong>Request failed — ${esc(api.error)}</strong><div style="margin-top:6px;color:var(--ink-2)">${apiHint()}</div></div>
     </div>` : ""}
 
-    ${state.source === "api" && api.plan ? planSummary(api.plan) : ""}
-
+    ${state.source === "api" && api.plan ? planView(api.plan, rows) : `
     <div class="table-wrap"><table style="min-width:1320px">
       <thead><tr>
         <th>#</th><th>Stock</th><th>Bias</th><th>Setup</th><th>Entry</th>
@@ -1958,7 +2136,7 @@ function viewAll(){
         <p class="dim" style="margin-top:10px;font-size:12px">Risk-reward and position size are computed from the
         analyst's own levels using the prompt's Part 18 formula. Neither is used to reject anything.</p>
       </div>
-    </div>`;
+    </div>`}`;
 }
 
 function viewConnect(){
@@ -2211,6 +2389,18 @@ function render(){
 }
 
 document.addEventListener("click", e => {
+  const setupRow = e.target.closest("tr[data-setup]");
+  if (setupRow){
+    const sym = setupRow.dataset.setup;
+    state.openSetup = state.openSetup === sym ? null : sym;
+    render(); return;
+  }
+  const watchRow = e.target.closest("tr[data-watch]");
+  if (watchRow){
+    const sym = watchRow.dataset.watch;
+    state.openWatch = state.openWatch === sym ? null : sym;
+    render(); return;
+  }
   const nav = e.target.closest(".nav-item");
   if (nav){ state.view = nav.dataset.view; render(); return; }
 
@@ -2342,7 +2532,22 @@ document.addEventListener("keydown", e => {
 });
 
 log("info", "dashboard started", { apiBase: state.apiBase, hasSession: Boolean(state.session), origin: location.origin });
-refreshAuthStatus().then(() => { if (state.view === "connect") render(); });
+refreshAuthStatus().then(async () => {
+  if (state.view === "connect") render();
+  if (state.auth.status !== "connected" || state.api.plan) return;
+  try {
+    const plan = await api("/api/v1/analyst/latest");
+    if (plan && Array.isArray(plan.setups)){
+      state.api.rows = plan.setups.map(rowFromApi);
+      state.api.plan = plan;
+      state.api.meta = plan.market || null;
+      state.api.at = new Date(plan.acceptedAt || Date.now());
+      state.api.status = "ok";
+      state.source = "api";
+      render();
+    }
+  } catch (err){ log("warn", "could not restore latest plan", { error: err.message }); }
+});
 
 document.getElementById("nc-setups").textContent = SCAN.setups.length;
 document.getElementById("nc-all").textContent = SCAN.setups.length;
