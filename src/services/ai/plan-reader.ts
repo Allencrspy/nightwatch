@@ -98,7 +98,11 @@ const num = (v: unknown): number | null => {
   }
   return null;
 };
-const str = (v: unknown): string => (v === null || v === undefined ? '' : String(v));
+// ChatGPT's web citations leak into text as private-use markers such as
+// "\ue200cite\ue202turn0news12\ue201"; with the markers lost, "citeturn0news12".
+const CITATION = /[\ue200-\ue2ff]?cite(?:[\ue200-\ue2ff]?turn\d+[a-z]+\d+)+[\ue200-\ue2ff]?/gi;
+const str = (v: unknown): string =>
+  v === null || v === undefined ? '' : String(v).replace(CITATION, '').replace(/[\ue200-\ue2ff]/g, '').replace(/\s+([.,;])/g, '$1').trim();
 const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);
 const bias = (v: unknown): 'LONG' | 'SHORT' => (/short/i.test(str(v)) ? 'SHORT' : 'LONG');
 
@@ -173,6 +177,11 @@ export function readPlan(
         if (v === null) continue;
         const own = LEVELS.some((k) => Math.abs((row[k] as number) - v) < 0.011);
         if (own) continue;
+        // Levels built as entry ± n × ATR belong to this stock, whatever else they match.
+        const anchors = [entry, stop, ...LEVELS.map((k) => row[k] as number)].filter((a): a is number => a !== null);
+        const fromAtr = row.atr14 > 0 && anchors.some((a) =>
+          [0.5, 1, 1.5, 2, 2.5, 3].some((n) => Math.abs(Math.abs(v - a) - n * row.atr14) < 0.011));
+        if (fromAtr) continue;
         const other = ctx.universe.find((u) => u.symbol !== symbol &&
           LEVELS.some((k) => Math.abs((u[k] as number) - v) < 0.011));
         if (other) {
@@ -187,6 +196,13 @@ export function readPlan(
         if (b === 'SHORT' && entry > row.close) {
           w.push(`Short trigger ${entry} is already above today's close of ${row.close}, so it would be hit at the open.`);
         }
+      }
+    }
+
+    if (row && entry !== null && row.atr14 > 0) {
+      const away = Math.abs(entry - row.close) / row.atr14;
+      if (away > 1.5) {
+        w.push(`Entry ${entry} is ${away.toFixed(1)}× ATR (${(Math.abs(entry - row.close) / row.close * 100).toFixed(1)}%) from today's close of ${row.close} — it may not trigger in one session.`);
       }
     }
 
@@ -251,6 +267,12 @@ export function readPlan(
       warnings: w,
     };
   });
+
+  const avoided = new Map((Array.isArray(raw.stocksToAvoid) ? raw.stocksToAvoid : [])
+    .map((a: any) => [str(a?.symbol ?? a?.stock).toUpperCase(), str(a?.reason)] as [string, string]));
+  for (const s of setups) {
+    if (avoided.has(s.symbol)) s.warnings.push(`Also listed under stocks to avoid: ${avoided.get(s.symbol)}`);
+  }
 
   if (!setups.length && !watchlist.length && !raw.noHighQualitySetup) {
     warnings.push('The file has no setups, no watchlist, and does not say there is no high-quality setup. It may be incomplete.');
