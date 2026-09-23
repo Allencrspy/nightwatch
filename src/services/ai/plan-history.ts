@@ -35,16 +35,20 @@ const MAX = 500;
 export class PlanHistory {
   private static records: PlanRecord[] = [];
   private static loaded = false;
+  private static mtime = 0;
 
   private static get file(): string {
     return path.resolve(process.cwd(), process.env.PLAN_HISTORY_PATH || FILE);
   }
 
+  /** Re-reads the file when something else (e.g. scripts/mock-plans.ts) changed it. */
   private static load(): void {
-    if (this.loaded) return;
+    const mtime = fs.existsSync(this.file) ? fs.statSync(this.file).mtimeMs : 0;
+    if (this.loaded && mtime === this.mtime) return;
     this.loaded = true;
+    this.mtime = mtime;
     try {
-      if (fs.existsSync(this.file)) this.records = JSON.parse(fs.readFileSync(this.file, 'utf8'));
+      this.records = mtime ? JSON.parse(fs.readFileSync(this.file, 'utf8')) : [];
     } catch (err) {
       logger.warn({ err }, 'Could not read plan history; starting empty');
       this.records = [];
@@ -54,6 +58,7 @@ export class PlanHistory {
   private static persist(): void {
     try {
       fs.writeFileSync(this.file, JSON.stringify(this.records), { mode: 0o600 });
+      this.mtime = fs.statSync(this.file).mtimeMs;
     } catch (err) {
       logger.warn({ err }, 'Could not write plan history');
     }

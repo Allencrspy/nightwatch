@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "web": "vite",
     "web:build": "vite build",
-    "check:universe": "tsx scripts/check-universe.ts"
+    "check:universe": "tsx scripts/check-universe.ts",
+    "mock:plans": "tsx scripts/mock-plans.ts",
+    "mock:clear": "tsx scripts/mock-plans.ts --clear"
   },
   "keywords": [
     "trading",

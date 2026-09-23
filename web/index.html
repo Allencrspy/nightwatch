@@ -394,6 +394,30 @@ tr.wl-row.open .clamp1{-webkit-line-clamp:unset}
 .agree{display:flex;align-items:center;gap:8px;font-size:12px;white-space:nowrap}
 .agree-bar{width:56px;height:6px;border-radius:3px;background:var(--line);overflow:hidden;flex:none}
 .agree-bar i{display:block;height:100%;background:var(--accent)}
+
+.cx-wrap{background:var(--plane);border:1px solid var(--line);border-radius:16px;padding:22px 20px 16px}
+.cx-title{text-align:center;margin-bottom:18px}
+.cx-title h2{margin:0 0 4px;font-size:20px;letter-spacing:-.01em}
+.cx-table-wrap{background:var(--card)}
+table.cx th,table.cx td{padding:11px 14px;vertical-align:top;white-space:normal;font-size:13px}
+table.cx thead th{text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:600;vertical-align:bottom}
+table.cx tbody th[scope=row]{color:var(--ink-2);font-weight:500;font-size:13px;text-transform:none;letter-spacing:0;white-space:nowrap}
+table.cx .cx-cons{background:var(--accent-wash);border-left:1px solid var(--accent-edge);border-right:1px solid var(--accent-edge)}
+table.cx thead .cx-cons{color:var(--accent);border-top:1px solid var(--accent-edge);border-radius:10px 10px 0 0}
+table.cx tbody tr:last-child .cx-cons{border-bottom:1px solid var(--accent-edge)}
+.cx-group th{background:var(--card-2);font-size:11px!important;letter-spacing:.07em!important;text-transform:uppercase!important;color:var(--ink-3)!important;padding:7px 14px!important}
+.cx-logo{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--card-2);border:1px solid var(--line-strong);font-size:11px;margin-right:8px;vertical-align:middle;color:var(--ink-2)}
+.cx-cons .cx-logo{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.cx-logo.mock{color:var(--warn);border-color:rgba(250,178,25,.4)}
+span.cx{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;font-size:11px;margin-right:6px;vertical-align:-3px;font-weight:700}
+span.cx-yes{background:var(--accent-wash);color:var(--accent)}
+span.cx-part{background:var(--warn-wash);color:var(--warn)}
+span.cx-no{background:var(--bad-wash);color:var(--bad)}
+span.cx-none{background:var(--line);color:var(--ink-3)}
+.cx-t{color:var(--ink)}
+.cx-top{color:var(--warn);font-family:var(--mono);font-size:12px}
+.cx-lv{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:4px;line-height:1.45}
+.cx-legend{margin:12px 2px 0;font-size:12px}
 </style>
 <style>
   html,body{height:100%}
@@ -2517,36 +2541,69 @@ function viewCompare(){
     </td>`;
   };
 
-  const ov = (label, f) => `<tr><th>${label}</th>${plans.map(p => `<td>${f(p)}</td>`).join("")}</tr>`;
+  const majority = Math.floor(n / 2) + 1;
+  const consensusTop = rows.filter(r => r.asSetup >= majority);
+  const mark = (kind, text) => `<span class="cx cx-${kind}">${kind==="yes"?"✓":kind==="no"?"✕":kind==="part"?"◐":"–"}</span>${text ? `<span class="cx-t">${text}</span>` : ""}`;
+
+  const runCell = c => {
+    if (c.setup) {
+      const t1 = c.setup.targets && c.setup.targets[0];
+      return `${mark("yes", `${c.top ? `<b class="cx-top">#${c.top}</b> ` : ""}${esc(c.setup.bias)} plan`)}
+        <div class="cx-lv">E ${fmt(c.setup.entryTrigger)} · SL ${fmt(c.setup.stopLoss)}${t1 != null ? ` · T1 ${fmt(t1)}` : ""}</div>
+        ${c.avoid ? `<div class="cx-lv" style="color:var(--bad)">also listed to avoid</div>` : ""}`;
+    }
+    if (c.avoid) return `${mark("no", "Avoid")}<div class="cx-lv clamp2" title="${esc(c.avoid.reason)}">${esc(c.avoid.reason)}</div>`;
+    if (c.watch || c.top) return `${mark("part", `Watch${c.watch && c.watch.bias && c.watch.bias !== "—" ? " · " + esc(c.watch.bias) : ""}`)}`;
+    return `<span class="dim">—</span>`;
+  };
+  const consensusCell = r => {
+    const bias = [...r.biases].join(" / ") || "";
+    const kind = r.asSetup >= majority ? "yes" : r.asSetup ? "part" : r.avoided >= majority ? "no" : "none";
+    const label = r.asSetup >= majority ? `Trade · ${r.asSetup}/${n}` : r.asSetup ? `Split · ${r.asSetup}/${n}` : r.avoided >= majority ? `Avoid · ${r.avoided}/${n}` : `Watch only`;
+    return `${mark(kind, `<strong>${label}</strong>${bias ? ` <span class="dim">${esc(bias)}</span>` : ""}`)}
+      ${r.entries.length ? `<div class="cx-lv">E ${spread(r.entries).replace(/<span class="sub-n">.*<\/span>/, "")} · SL ${spread(r.stops).replace(/<span class="sub-n">.*<\/span>/, "")}</div>` : ""}
+      ${r.biases.size > 1 ? `<div class="cx-lv" style="color:var(--warn)">⚠ runs disagree on bias</div>` : ""}
+      ${r.avoided && r.asSetup ? `<div class="cx-lv" style="color:var(--warn)">avoid in ${r.avoided} run${r.avoided>1?"s":""}</div>` : ""}`;
+  };
+
+  const top3Consensus = [...rows].filter(r => r.inTop).sort((x, y) => y.inTop - x.inTop || y.asSetup - x.asSetup).slice(0, 3);
+  const biasCount = {};
+  plans.forEach(p => { const b = (p.market && p.market.bias) || "—"; biasCount[b] = (biasCount[b] || 0) + 1; });
+  const topBias = Object.entries(biasCount).sort((x, y) => y[1] - x[1])[0];
+  const avgPlans = plans.reduce((a, p) => a + (p.setups || []).length, 0) / n;
+  const biasChip = b => b ? `<span class="chip ${b==="BULLISH"?"good":b==="BEARISH"?"bad":"warn"}">${esc(b)}</span>` : "—";
+
+  const row = (label, cons, f) => `<tr><th scope="row">${label}</th><td class="cx-cons">${cons}</td>${plans.map(p => `<td>${f(p)}</td>`).join("")}</tr>`;
+  const group = label => `<tr class="cx-group"><th colspan="${n + 2}">${label}</th></tr>`;
 
   return `${pageHead}${picker}
-    <div class="section-head"><h2>Runs</h2><span class="eyebrow">${n} selected</span></div>
-    <div class="table-wrap" style="margin-bottom:22px"><table class="dense cmp-ov" style="min-width:${200 + n * 200}px">
-      <thead><tr><th></th>${head.map(h => `<th>${esc(when(h.acceptedAt))}<span class="sub-n">${esc(h.briefId)}</span></th>`).join("")}</tr></thead>
-      <tbody>
-        ${ov("Universe", p => { const h = list.find(x => x.briefId === p.briefId); return h ? `${h.universeSize} stocks` : "—"; })}
-        ${ov("Market", p => p.market && p.market.bias ? `<span class="chip ${p.market.bias==="BULLISH"?"good":p.market.bias==="BEARISH"?"bad":"warn"}">${esc(p.market.strength || p.market.bias)}</span>` : "—")}
-        ${ov("Trade plans", p => (p.setups||[]).length)}
-        ${ov("Top 3", p => (p.top3||[]).length ? (p.top3).map((x,i) => `<strong>${esc(x)}</strong>`).join(" · ") : "—")}
-        ${ov("Best long", p => `<span class="clamp2 muted" title="${esc(p.bestLong||"")}">${esc(p.bestLong || "none")}</span>`)}
-        ${ov("Best short", p => `<span class="clamp2 muted" title="${esc(p.bestShort||"")}">${esc(p.bestShort || "none")}</span>`)}
-      </tbody>
-    </table></div>
-
-    <div class="section-head"><h2>Stocks across runs</h2><span class="eyebrow">${rows.length} named · most consistent first</span></div>
-    <div class="table-wrap"><table class="dense cmp" style="min-width:${360 + n * 210}px">
-      <thead><tr><th>Stock</th><th>Agreement</th>${head.map(h => `<th>${esc(when(h.acceptedAt))}</th>`).join("")}<th class="n">Entry range</th><th class="n">Stop range</th></tr></thead>
-      <tbody>${rows.map(r => `<tr>
-        <td><strong>${esc(r.sym)}</strong></td>
-        <td style="white-space:normal">
-          <div class="agree"><span class="agree-bar"><i style="width:${(r.asSetup / n) * 100}%"></i></span><span>${r.asSetup}/${n} plans</span></div>
-          <span class="sub-n" style="font-family:var(--ui)">${[r.inTop ? `top 3 in ${r.inTop}` : "", r.onWatch ? `watch in ${r.onWatch}` : "", r.avoided ? `avoid in ${r.avoided}` : "", r.biases.size > 1 ? "⚠ bias differs" : ""].filter(Boolean).join(" · ")}</span>
-        </td>
-        ${r.cells.map(cell).join("")}
-        <td class="n">${spread(r.entries)}</td>
-        <td class="n">${spread(r.stops)}</td>
-      </tr>`).join("")}</tbody>
-    </table></div>`;
+    <div class="cx-wrap">
+      <div class="cx-title">
+        <h2>${n} runs compared — <span style="color:var(--accent)">${consensusTop.length} stock${consensusTop.length===1?"":"s"} most runs agree on</span></h2>
+        <p class="dim">A stock counts as agreed when a majority of runs (${majority} of ${n}) made it a trade plan.</p>
+      </div>
+      <div class="table-wrap cx-table-wrap"><table class="cx" style="min-width:${260 + (n + 1) * 190}px">
+        <thead><tr>
+          <th></th>
+          <th class="cx-cons"><span class="cx-logo">★</span>Consensus<span class="sub-n" style="font-family:var(--ui)">across ${n} runs</span></th>
+          ${head.map(h => `<th><span class="cx-logo ${String(h.briefId).startsWith("MOCK-") ? "mock" : ""}">${String(h.briefId).startsWith("MOCK-") ? "M" : "G"}</span>${esc(when(h.acceptedAt))}
+            <span class="sub-n">${esc(h.briefId)}${h.universeSize > 100 ? " · +non-F&O" : ""}</span></th>`).join("")}
+        </tr></thead>
+        <tbody>
+          ${group("Overview")}
+          ${row("Market", topBias ? `${biasChip(topBias[0])} <span class="dim">${topBias[1]}/${n}</span>` : "—", p => biasChip(p.market && p.market.bias))}
+          ${row("Trade plans", `${avgPlans.toFixed(1)} <span class="dim">avg</span>`, p => (p.setups||[]).length)}
+          ${[0,1,2].map(i => row(`Top 3 · #${i+1}`,
+              top3Consensus[i] ? `<strong>${esc(top3Consensus[i].sym)}</strong> <span class="dim">top 3 in ${top3Consensus[i].inTop}/${n}</span>` : "—",
+              p => (p.top3||[])[i] ? `<strong>${esc(p.top3[i])}</strong>` : `<span class="dim">—</span>`)).join("")}
+          ${row("Best long", "", p => `<span class="clamp2 muted" title="${esc(p.bestLong||"")}">${esc(p.bestLong || "none")}</span>`)}
+          ${row("Best short", "", p => `<span class="clamp2 muted" title="${esc(p.bestShort||"")}">${esc(p.bestShort || "none")}</span>`)}
+          ${group(`Stocks · ${rows.length} named, most agreed first`)}
+          ${rows.map(r => `<tr><th scope="row"><strong>${esc(r.sym)}</strong></th><td class="cx-cons">${consensusCell(r)}</td>${r.cells.map(c => `<td>${runCell(c)}</td>`).join("")}</tr>`).join("")}
+        </tbody>
+      </table></div>
+      <p class="dim cx-legend">${mark("yes","Trade plan")} ${mark("part","Watchlist")} ${mark("no","Avoid")} <span style="margin-left:10px">#1–#3 = that run's top 3</span></p>
+    </div>`;
 }
 
 const VIEWS = { desk:viewDesk, all:viewAll, compare:viewCompare, analyst:viewAnalyst, setups:viewSetups, market:viewMarket, rejected:viewRejected, risk:viewRisk, health:viewHealth, connect:viewConnect, logs:viewLogs };
